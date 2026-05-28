@@ -1,0 +1,6 @@
+{
+  "name": "Linux 2006 WebOS",
+  "description": "An interactive TrashLinux 0.04a WebOS simulation featuring clunky retro-steel double-bevel window managers, user privilege isolation, secure multi-role logins with dynamic assertion diagnostics, a fully controllable background daemon manager, and customized terminal commands.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
