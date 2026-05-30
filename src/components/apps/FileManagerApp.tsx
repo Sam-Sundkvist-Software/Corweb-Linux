@@ -106,7 +106,14 @@ export default function FileManagerApp({
       navigateTo(fullPath);
     } else {
       // File double clicked! Launch specialized application
-      if (name.endsWith(".txt") || name.endsWith(".conf") || name.endsWith(".json") || name.endsWith(".cfg") || name.endsWith(".sh")) {
+      const lower = name.toLowerCase();
+      if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".gif") || lower.endsWith(".bmp")) {
+        onLaunchApp("imageViewerUF", `Image Viewer - ${name}`, { content: fullPath, width: 620, height: 460 });
+      } else if (lower.endsWith(".mp4") || lower.endsWith(".avi") || lower.endsWith(".mov") || lower.endsWith(".mkv") || lower.endsWith(".webm")) {
+        onLaunchApp("videoPlayerUF", `Video Player - ${name}`, { content: fullPath, width: 620, height: 480 });
+      } else if (lower.endsWith(".mp3") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".aac")) {
+        onLaunchApp("musicPlayerUF", `Music Player - ${name}`, { content: fullPath, width: 620, height: 460 });
+      } else if (name.endsWith(".txt") || name.endsWith(".conf") || name.endsWith(".json") || name.endsWith(".cfg") || name.endsWith(".sh")) {
         onLaunchApp("leafpadUF", `Leafpad - ${name}`, { content: fullPath });
       } else {
         onLaunchApp("leafpadUF", `Viewing: ${name}`, { content: fullPath });
@@ -322,11 +329,16 @@ export default function FileManagerApp({
 
     Array.from(files).forEach((file: any) => {
       const reader = new FileReader();
+      const name = file.name.toLowerCase();
+      const isMedia = name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif") || name.endsWith(".bmp") ||
+                      name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".ogg") || name.endsWith(".flac") || name.endsWith(".aac") ||
+                      name.endsWith(".mp4") || name.endsWith(".avi") || name.endsWith(".mov") || name.endsWith(".mkv") || name.endsWith(".webm");
+
       reader.onload = (evt) => {
-        const textContent = evt.target?.result as string;
+        const fileContent = evt.target?.result as string;
         const targetPath = cwd === "/" ? `/${file.name}` : `${cwd}/${file.name}`;
         
-        const ok = syscall.writeFile(targetPath, textContent || "");
+        const ok = syscall.writeFile(targetPath, fileContent || "");
         if (ok) {
           syscall.syslog(`Dropped device file written to WebOS VFS: ${targetPath}`);
           setInfoMsg(`Imported file: ${file.name}`);
@@ -336,7 +348,12 @@ export default function FileManagerApp({
         }
         setTimeout(() => { setInfoMsg(""); setErrorMsg(""); }, 4000);
       };
-      reader.readAsText(file);
+
+      if (isMedia) {
+        reader.readAsDataURL(file);
+      } else {
+        reader.readAsText(file);
+      }
     });
   };
 

@@ -80,6 +80,19 @@ Log in as 'root' for total CPU world domination.
 =====================================================`,
           },
           resolv: { name: "resolv.conf", type: NodeType.FILE, createdAt: Date.now(), content: "nameserver 1.1.1.1\nnameserver 8.8.8.8" },
+          "bootaid.json": {
+            name: "bootaid.json",
+            type: NodeType.FILE,
+            createdAt: Date.now(),
+            content: JSON.stringify({
+              default: "createSecureKernel",
+              kernels: [
+                { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" },
+                { id: "xsi", name: "XSI Advanced Isolation Kernel", entry: "createXsiKernel", version: "2.8.2-xsi-386" },
+                { id: "fob", name: "FOB Minimal Core Kernel", entry: "createFobKernel", version: "1.0.0-fob-core" }
+              ]
+            }, null, 2)
+          },
         },
       },
       home: {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { NodeType, Process, WindowInstance, DaemonService, ProcessState, VFSNode, DialogInstance } from "../types/os";
-import { createSecureKernel, KernelInstance } from "../kernel/secureKernel";
+import * as Kernels from "../kernel/secureKernel";
+import { KernelInstance } from "../kernel/secureKernel";
 import { loadVFSFromDisk, resolveNode } from "../kernel/vfs";
 
 let globalKernel: KernelInstance | null = null;
@@ -14,6 +15,11 @@ export const useWebOS = () => {
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [currentCwd, setCurrentCwd] = useState<string>("/home/guest");
   const [dialogs, setDialogs] = useState<DialogInstance[]>([]);
+  
+  // Interactive FOB Boot Loader states
+  const [bootLoaderPhase, setBootLoaderPhase] = useState<"loader" | "booting" | "none">("loader");
+  const [availableKernels, setAvailableKernels] = useState<{ id: string; name: string; entry: string; version: string }[]>([]);
+  const [selectedKernelId, setSelectedKernelId] = useState<string>("secure");
   
   // Real-time login & disaster hooks
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -51,12 +57,57 @@ export const useWebOS = () => {
                   ||     ||`;
   };
 
-  // Perform boot sequence mimicking Linux/Ubuntu 6.06 Dapper Drake
+  // Load bootaid configuration dynamically from IndexedDB prior to bootloader initiation
   useEffect(() => {
+    const initBootLoader = async () => {
+      const rootVFS = await loadVFSFromDisk();
+      setVFS(rootVFS);
+      
+      let kernelsList = [
+        { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" },
+        { id: "xsi", name: "XSI Advanced Isolation Kernel", entry: "createXsiKernel", version: "2.8.2-xsi-386" },
+        { id: "fob", name: "FOB Minimal Core Kernel", entry: "createFobKernel", version: "1.0.0-fob-core" }
+      ];
+      let defaultId = "secure";
+      
+      try {
+        const bootaidNode = resolveNode(rootVFS, "/etc/bootaid.json");
+        if (bootaidNode && bootaidNode.content) {
+          const parsed = JSON.parse(bootaidNode.content);
+          if (parsed.kernels && Array.isArray(parsed.kernels)) {
+            kernelsList = parsed.kernels;
+          }
+          if (parsed.default) {
+            const matched = kernelsList.find(k => k.entry === parsed.default);
+            if (matched) {
+              defaultId = matched.id;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not read bootaid.json from VFS on init, using core defaults:", err);
+      }
+      
+      setAvailableKernels(kernelsList);
+      setSelectedKernelId(defaultId);
+    };
+    
+    initBootLoader();
+  }, []);
+
+  const selectKernelAndBoot = useCallback((kernelId: string) => {
+    setSelectedKernelId(kernelId);
+    setBootLoaderPhase("booting");
+  }, []);
+
+  // Perform boot sequence based on dynamic reflection matching available bootaid entries
+  useEffect(() => {
+    if (bootLoaderPhase !== "booting") return;
+
     let active = true;
     const runBoot = async () => {
       const logs: string[] = [];
-      const addLog = (msg: string, delay = 80) => {
+      const addLog = (msg: string, delay = 60) => {
         return new Promise<void>((resolve) => {
           setTimeout(() => {
             if (active) {
@@ -68,22 +119,36 @@ export const useWebOS = () => {
         });
       };
 
-      await addLog("GRUB Loading stage1.5 .", 60);
-      await addLog("GRUB Loading stage2 ... SUCCESS", 80);
-      await addLog("Booting Linux kernel 2.6.15-26-386-WebKernel ...", 100);
-      await addLog("[    0.000000] Linux version 2.6.15-26-386 (GCC 4.0.3) PREEMPT Thu May 28", 120);
-      await addLog("[    0.002011] ACPI: BIOS (primary) tables match signature", 50);
-      await addLog("[    0.010410] CPU0: Virtual Web Core Intel Solo clocking 1833.000 MHz", 60);
-      await addLog("[    0.125011] SCSI subsystem sub-system initialized", 70);
-      await addLog("[    0.280015] EXT3-fs: mounting root block VFS with journaled integrity", 90);
-      await addLog("[    0.340115] Sandboxed Secure Kernel: COMPILING ISOLATION LAYERS", 90);
-      await addLog("[    0.410115] Core Sysconfig system policies loaded from '/etc/sysconfig.json'", 90);
-      await addLog("[    0.501254] Mounting IndexedDB Persistent block storage device /dev/idb0 ... SUCCESS", 130);
+      await addLog("[    0.000000] FOB Boot Loader v1.2 initialising in Sandbox...", 30);
+      await addLog("[    0.010432] Scanning VFS file descriptor: /etc/bootaid.json ... SUCCESS", 45);
+      
+      const chosenKernel = availableKernels.find(k => k.id === selectedKernelId) || {
+        id: "secure",
+        name: "Standard Secure Kernel",
+        entry: "createSecureKernel",
+        version: "2.6.15-26"
+      };
+
+      await addLog(`[    0.024102] Target chosen kernel: ${chosenKernel.name} (v${chosenKernel.version})`, 50);
+      await addLog(`[    0.038190] FOB Boot Loader: performing dynamic JS module reflection on: '${chosenKernel.entry}'`, 60);
+
+      const entryPoint = chosenKernel.entry;
+      const kernelCreator = (Kernels as any)[entryPoint];
+      
+      if (typeof kernelCreator === "function") {
+        await addLog(`[    0.052102] REFLECTION CONTRACT: Found function '${entryPoint}' of type function [OK]`, 50);
+      } else {
+        await addLog(`[    0.053120] REFLECTION WARNING: function '${entryPoint}' missing or corrupt! Falling back.`, 80);
+      }
 
       // Load File System
       const rootVFS = await loadVFSFromDisk();
       if (!globalKernel) {
-        globalKernel = createSecureKernel(rootVFS);
+        if (typeof kernelCreator === "function") {
+          globalKernel = kernelCreator(rootVFS);
+        } else {
+          globalKernel = Kernels.createSecureKernel(rootVFS);
+        }
       }
       kernelRef.current = globalKernel;
 
@@ -100,42 +165,90 @@ export const useWebOS = () => {
         setCurrentCwd(`/home/${user}`);
       });
 
+      await addLog(`[    0.104254] Instantiated Kernel module successfully. Checking capabilities...`, 50);
+      const contractCaps = ["bootProcess", "killProcess", "getProcesses", "getKernelVFS", "getSyscallToken", "flushVFSToDisk", "getCurrentUser", "testAuthentication"];
+      for (const cap of contractCaps) {
+        const ok = typeof (kernelRef.current as any)[cap] === "function";
+        await addLog(`               - capability verification: ${cap.padEnd(20, " ")} -> [${ok ? "FOUND" : "MISSING"}]`, 20);
+      }
+
+      await addLog("[    0.280015] EXT3-fs: mounting root block VFS with journaled integrity ... SUCCESS", 60);
+      
+      if (selectedKernelId === "xsi") {
+        await addLog("[    0.301015] [XSI SEQUENCE] Enabling Advanced Page Table Namespace Isolation.", 50);
+        await addLog("[    0.312105] [XSI SEQUENCE] Mounting inter-process shared memory blocks (SHM V5).", 50);
+        await addLog("[    0.324267] [XSI SEQUENCE] Allocating semaphore isolation registers (SEM V5).", 50);
+      } else if (selectedKernelId === "fob") {
+        await addLog("[    0.301015] [FOB MODULE] Spawning slim core microkernel optimizations.", 35);
+        await addLog("[    0.312105] [FOB MODULE] Bypassing audit daemon background routines.", 35);
+      }
+
+      await addLog("[    0.340115] Sandboxed Secure Kernel: COMPILING ISOLATION LAYERS ... [ OK ]", 60);
+      await addLog("[    0.410115] Core Sysconfig system policies loaded from '/etc/sysconfig.json'", 60);
+      await addLog("[    0.501254] Mounting IndexedDB Persistent block storage device /dev/idb0 ... SUCCESS", 80);
+
+      // FSCK directories output
+      const etcNode = resolveNode(rootVFS, "/etc")?.children;
+      if (etcNode) {
+        const etcFiles = Object.keys(etcNode).join(", ");
+        await addLog(`[    0.521105] FSCK: verified '/etc/' directory nodes: [ ${etcFiles} ]`, 50);
+      }
+
+      const usersFile = resolveNode(rootVFS, "/etc/users.json");
+      if (usersFile && usersFile.content) {
+        try {
+          const parsed = JSON.parse(usersFile.content);
+          const usernames = parsed.map((ac: any) => ac.username).join(", ");
+          await addLog(`[    0.540120] Dynamic Accounts parsed from users.json: [ ${usernames} ]`, 50);
+        } catch {}
+      }
+
       // Spawn Init Service Daemon
       kernelRef.current.bootProcess("systemBackgroundProcessD", true);
 
-      await addLog("INIT: service 'systemBackgroundProcessD' [PID 1] spawned successfully.", 70);
-      await addLog("[    0.602115] Starting essential daemon services...", 70);
+      await addLog("INIT: service 'systemBackgroundProcessD' [PID 1] spawned successfully.", 50);
+      await addLog("[    0.602115] Starting essential daemon services...", 50);
 
-      const services = [
-        "syslogd.service - System Log Router",
-        "journald-logger.service - Journal Capture Broker",
-        "memcleanG.service - Virtual RAM garbage sweeping loop",
-      ];
+      const runningServices = selectedKernelId === "fob" ? ["syslogd.service"]
+        : selectedKernelId === "xsi" ? ["syslogd.service", "journald-logger.service", "memcleanG.service", "xsi-ipc-broker.service"]
+        : ["syslogd.service", "journald-logger.service", "memcleanG.service"];
 
-      for (const service of services) {
-        await addLog(`Starting ${service} ... [ OK ]`, 100);
+      for (const service of runningServices) {
+        await addLog(`Starting ${service} ... [ OK ]`, 70);
         kernelRef.current.writeSyslog(`Boot completed for ${service}`);
       }
 
-      await addLog("[   0.890011] Initializing GNOME Display Manager 2.14.3...", 100);
-      await addLog("gdm-login: opening authentication browser session...", 120);
-      await addLog("Ubuntu human classic theme ready. Boot loop OK.", 150);
+      await addLog("[   0.890011] Initializing GNOME Display Manager 2.14.3...", 70);
+      await addLog("gdm-login: opening authentication Greeter session...", 80);
+      await addLog(`Boot sequence fully completed. [ SYSTEM READY - FLAVOR: ${selectedKernelId.toUpperCase()} ]`, 80);
+
+      // Save complete logs to /var/boot_log.txt on the VFS
+      const completeLog = logs.join("\n");
+      const bootWriterPid = kernelRef.current.bootProcess("bootlog_writer_proc", false);
+      const wSyscall = kernelRef.current.getSyscallToken(bootWriterPid);
+      try {
+        wSyscall.writeFile("/var/boot_log.txt", completeLog);
+        await addLog("Complete boot log saved cleanly to '/var/boot_log.txt' ... [ SUCCESS ]", 40);
+      } catch (err: any) {
+        console.error("Failed to write to VFS /var/boot_log.txt", err);
+      } finally {
+        kernelRef.current.killProcess(bootWriterPid);
+      }
 
       if (active) {
         setVFS(kernelRef.current.getKernelVFS());
         setProcesses(kernelRef.current.getProcesses());
         
-        // Listener to keep React components in sync with VFS
         kernelRef.current.registerVFSListener((newVFS) => {
           setVFS(newVFS);
         });
 
-        // Resolve if the kernel is already in a panicked state
         if (kernelRef.current.isPanicked()) {
           setIsKernelPanicked(true);
           setPanicMessage(kernelRef.current.getPanicMessage());
         }
 
+        setBootLoaderPhase("none");
         setIsBooting(false);
       }
     };
@@ -145,7 +258,7 @@ export const useWebOS = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [bootLoaderPhase, selectedKernelId, availableKernels]);
 
   // Sync process values periodically and close orphaned windows
   useEffect(() => {
@@ -345,6 +458,21 @@ export const useWebOS = () => {
     );
   }, []);
 
+  // Persist cached virtual filesystem on page leave or unload
+  useEffect(() => {
+    const handleLeave = () => {
+      if (kernelRef.current && (kernelRef.current as any).flushVFSToDisk) {
+        (kernelRef.current as any).flushVFSToDisk();
+      }
+    };
+    window.addEventListener("beforeunload", handleLeave);
+    window.addEventListener("pagehide", handleLeave);
+    return () => {
+      window.removeEventListener("beforeunload", handleLeave);
+      window.removeEventListener("pagehide", handleLeave);
+    };
+  }, []);
+
   // System reboot command
   const rebootSystem = () => {
     setIsBooting(true);
@@ -357,6 +485,9 @@ export const useWebOS = () => {
     if (kernelRef.current) {
       kernelRef.current.logoutUser();
       kernelRef.current.writeSyslog("System reboot signal toggled by user request.");
+      if ((kernelRef.current as any).flushVFSToDisk) {
+        (kernelRef.current as any).flushVFSToDisk();
+      }
     }
     setTimeout(() => {
       window.location.reload();
@@ -426,14 +557,27 @@ export const useWebOS = () => {
         output = ["Halt signal processed."];
         break;
 
+      case "uname":
+        if (args[0] === "-a") {
+          const vFile = syscall.readFile("/proc/version");
+          output = [vFile && !vFile.startsWith("Error") ? vFile : "Linux 2.6.15-26-386-WebKernel"];
+        } else {
+          output = ["Linux"];
+        }
+        break;
+
       case "neofetch":
         const u = syscall.getCurrentUser();
         const roleStr = syscall.getCurrentUserRole();
+        const kernelVerFile = syscall.readFile("/proc/version");
+        const kVer = kernelVerFile && !kernelVerFile.startsWith("Error") 
+          ? kernelVerFile.replace("Linux version ", "").split(" ")[0] 
+          : "2.6.15-26";
         output = [
           "            .-.-.          " + u + "@trashlinux-beast",
           "           ( o o )         ----------------------",
           "            | O |          OS: TrashLinux 0.04a-stable Build 42",
-          "           /     \\         Kernel: 2.2.19-trash-SMP x86_64",
+          "           /     \\         Kernel: " + kVer + "-SMP x86_64",
           "          /       \\        Uptime: " + Math.floor((Date.now() - (kernelRef.current ? 0 : Date.now())) / 60000) + " mins",
           "         /   - -   \\       Active Session: " + u + " [Role: " + roleStr + "]",
           "        /           \\      Shell: bash 1.14.7-trash",
@@ -641,6 +785,12 @@ export const useWebOS = () => {
     kernel: kernelRef.current,
     testAuthentication: () => kernelRef.current ? kernelRef.current.testAuthentication() : [],
     
+    // FOB Boot Loader options
+    bootLoaderPhase,
+    availableKernels,
+    selectedKernelId,
+    selectKernelAndBoot,
+
     // Dialog states
     dialogs,
     openDialog,

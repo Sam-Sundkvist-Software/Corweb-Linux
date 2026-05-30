@@ -129,15 +129,52 @@ export default function WindowFrame({
     };
   }, [isDragging, isResizing, win, onMove, onResize]);
 
-  // Styling properties matching classic TrashLinux Steel Window Theme
-  const headerBgClass = isActive
-    ? "bg-[#002080] text-white border-b border-white"
-    : "bg-[#808080] text-[#e0e0e0] border-b border-[#555753]";
+  // Set icons & extras based on app ID
+  let titleIcon = "💻";
+  let ledGlowClass: string | null = null;
+  let extraHeaderDecoration: React.ReactNode | null = null;
+  let headerThemeClass = "";
 
-  const windowClasses = `absolute flex flex-col rounded-none bg-[#d4d0c8] shadow-2xl transition-shadow duration-100 border-[3px] border-t-white border-l-white border-r-[#404040] border-b-[#404040] overflow-hidden ${
-    isActive ? "shadow-2xl" : "opacity-95 shadow-black/30"
-  }`;
+  const isTerminal = win.appId === "terminalUF";
+  const isFileManager = win.appId === "fileManagerUF";
+  const isLeafpad = win.appId === "leafpadUF";
+  const isMinesweeper = win.appId === "minesweeperUF";
+  const isSurfer = win.appId === "surferUF";
+  const isSystemControl = ["controlPanelUFD", "systemMonitorUFD", "systemFlagEditorUFD"].includes(win.appId);
 
+  if (isTerminal) {
+    titleIcon = "📟";
+    ledGlowClass = "glowing-led-green";
+    headerThemeClass = "header-terminal";
+  } else if (isFileManager) {
+    titleIcon = "💧";
+    headerThemeClass = "header-filemanager";
+  } else if (isLeafpad) {
+    titleIcon = "🪶";
+    extraHeaderDecoration = <span className="text-[9px] opacity-75 ml-2 font-mono italic select-none">(edit buffer)</span>;
+    headerThemeClass = "header-leafpad";
+  } else if (isMinesweeper) {
+    titleIcon = "👾";
+    headerThemeClass = "header-minesweeper";
+  } else if (isSurfer) {
+    titleIcon = "🕸️";
+    extraHeaderDecoration = <span className="bg-[#e4e0d8] border border-[#a0a0a0] text-gray-700 text-[8px] px-1 py-0.5 ml-2 font-sans font-bold">WWW READY</span>;
+    headerThemeClass = "header-surfer";
+  } else if (isSystemControl) {
+    titleIcon = "⚙️";
+    ledGlowClass = "glowing-led-red";
+    extraHeaderDecoration = <span className="bg-[#fee2e2] border border-[#fca5a5] text-red-800 text-[8px] uppercase px-1 ml-2 font-sans font-bold">SECURE CORE</span>;
+    headerThemeClass = "header-system";
+  }
+
+  const headerClass = `silver-header ${headerThemeClass} ${isActive ? "" : "silver-header-inactive"}`;
+  
+  // Dragging should be instant (no transitions during drag/resize)
+  const isTransitioning = !isDragging && (isResizing === null);
+  const transitionClass = isTransitioning ? "transition-all duration-150 ease-out" : "";
+  const windowStatusClass = isActive ? "silver-window-active" : "silver-window-inactive";
+  const windowClasses = `silver-window absolute ${windowStatusClass} ${transitionClass}`;
+ 
   const style: React.CSSProperties = win.isMaximized
     ? {
         top: "28px", // below our desk top panel
@@ -168,25 +205,29 @@ export default function WindowFrame({
     >
       {/* TrashLinux Window Header Panel */}
       <div
-        className={`h-6 px-1.5 flex items-center justify-between cursor-default select-none ${headerBgClass}`}
+        className={headerClass}
         onMouseDown={handleHeaderMouseDown}
         onDoubleClick={() => onMaximize(win.id)}
       >
-        <div className="flex items-center space-x-2 truncate">
-          <span className="text-[10.5px] font-bold tracking-wider font-mono">
-            💾 {win.title}
+        <div className="silver-window-title truncate">
+          {ledGlowClass && (
+            <div className={`${ledGlowClass} shrink-0`} />
+          )}
+          <span className="select-none truncate">
+            {titleIcon} {win.title}
           </span>
+          {extraHeaderDecoration}
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-[2px] items-center">
+        <div className="silver-btn-grp">
           {/* Minimize Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               onMinimize(win.id);
             }}
-            className="w-4.5 h-4.5 bg-[#d4d0c8] border border-t-white border-l-white border-r-[#404040] border-b-[#404040] hover:bg-[#c0c0c0] active:border-t-[#404040] active:border-l-[#404040] flex items-center justify-center font-bold font-mono text-[9px] text-black cursor-default select-none pb-1"
+            className="silver-btn"
             title="Minimize"
           >
             _
@@ -198,7 +239,7 @@ export default function WindowFrame({
               e.stopPropagation();
               onMaximize(win.id);
             }}
-            className="w-4.5 h-4.5 bg-[#d4d0c8] border border-t-white border-l-white border-r-[#404040] border-b-[#404040] hover:bg-[#c0c0c0] active:border-t-[#404040] active:border-l-[#404040] flex items-center justify-center font-bold font-mono text-[9px] text-black cursor-default select-none"
+            className="silver-btn"
             title="Maximize"
           >
             □
@@ -210,7 +251,7 @@ export default function WindowFrame({
               e.stopPropagation();
               onClose(win.id);
             }}
-            className="w-4.5 h-4.5 bg-[#d4d0c8] border border-t-white border-l-white border-r-[#404040] border-b-[#404040] hover:bg-[#c4c0b8] active:border-t-[#404040] active:border-l-[#404040] flex items-center justify-center text-red-800 font-extrabold font-mono text-[9.5px] cursor-default select-none"
+            className="silver-btn silver-btn-close"
             title="Close"
           >
             X
@@ -220,11 +261,18 @@ export default function WindowFrame({
 
       {/* Application Container Canvas */}
       <div className="flex-1 min-h-0 relative bg-[#eeeeec] text-black flex flex-col font-mono select-text">
+        {/* Interactive Diagonal Gloss overlay across the window pane */}
+        <div className="gloss-overlay" />
+
+        {isTerminal && (
+          <div className="crt-screen-overlay" />
+        )}
+
         {children}
 
         {/* Disabled Overlay if process is not focused (simulating classic window locks) */}
         {!isActive && (
-          <div className="absolute inset-0 bg-white/5 pointer-events-none" />
+          <div className="absolute inset-0 bg-black/5 pointer-events-none z-40" />
         )}
 
         {/* Modal disable guard overlay */}
@@ -291,11 +339,21 @@ function InnerDialogOverlay({ diag, onClose }: { diag: any; onClose: (id: string
 
   const handleFile = (file: File) => {
     const reader = new FileReader();
+    const name = file.name.toLowerCase();
+    const isMedia = name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif") || name.endsWith(".bmp") ||
+                    name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".ogg") || name.endsWith(".flac") || name.endsWith(".aac") ||
+                    name.endsWith(".mp4") || name.endsWith(".avi") || name.endsWith(".mov") || name.endsWith(".mkv") || name.endsWith(".webm");
+
     reader.onload = (e) => {
       const content = e.target?.result as string;
       onClose(diag.id, { name: file.name, content });
     };
-    reader.readAsText(file);
+
+    if (isMedia) {
+      reader.readAsDataURL(file);
+    } else {
+      reader.readAsText(file);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -368,7 +426,7 @@ function InnerDialogOverlay({ diag, onClose }: { diag: any; onClose: (id: string
             onClick={() => {
               const fileInput = document.createElement("input");
               fileInput.type = "file";
-              fileInput.accept = ".txt,.cfg,.conf,.json,.sh,.desktop,.html,.css";
+              fileInput.accept = ".txt,.cfg,.conf,.json,.sh,.desktop,.html,.css,.png,.jpg,.jpeg,.gif,.bmp,.mp3,.wav,.ogg,.flac,.aac,.mp4,.avi,.mov,.mkv,.webm";
               fileInput.onchange = (e: any) => {
                 if (e.target.files && e.target.files[0]) {
                   handleFile(e.target.files[0]);
@@ -385,7 +443,7 @@ function InnerDialogOverlay({ diag, onClose }: { diag: any; onClose: (id: string
               Click to choose file or drag/drop here
             </span>
             <span className="text-[8px] font-normal text-gray-500 font-mono text-center leading-normal">
-              .txt, .json, .conf, .sh, .css, .html
+              Any files, including images, video, audio and text
             </span>
           </div>
         )}

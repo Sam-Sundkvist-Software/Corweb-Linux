@@ -6,33 +6,157 @@ import { Power, RefreshCcw, ShieldAlert, Cpu, HardDrive, KeyRound, Monitor, Info
 // ==========================================
 interface DetailedBootScreenProps {
   logs: string[];
+  bootLoaderPhase?: "loader" | "booting" | "none";
+  availableKernels?: { id: string; name: string; entry: string; version: string }[];
+  selectedKernelId?: string;
+  onSelectKernel?: (id: string) => void;
 }
 
-export function DetailedBootScreen({ logs }: DetailedBootScreenProps) {
+export function DetailedBootScreen({
+  logs,
+  bootLoaderPhase = "booting",
+  availableKernels = [],
+  selectedKernelId = "secure",
+  onSelectKernel,
+}: DetailedBootScreenProps) {
   const terminalEndRef = useRef<HTMLDivElement>(null);
+  const [countdown, setCountdown] = useState(5);
+  const [activeSelection, setActiveSelection] = useState<string>("secure");
+
+  useEffect(() => {
+    setActiveSelection(selectedKernelId);
+  }, [selectedKernelId]);
 
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
+  useEffect(() => {
+    if (bootLoaderPhase !== "loader") return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          onSelectKernel?.(activeSelection || "secure");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [bootLoaderPhase, activeSelection, onSelectKernel]);
+
+  useEffect(() => {
+    if (bootLoaderPhase !== "loader") return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "1") {
+        setActiveSelection("secure");
+      } else if (e.key === "2") {
+        setActiveSelection("xsi");
+      } else if (e.key === "3") {
+        setActiveSelection("fob");
+      } else if (e.key === "Enter") {
+        onSelectKernel?.(activeSelection);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [bootLoaderPhase, activeSelection, onSelectKernel]);
+
+  if (bootLoaderPhase === "loader") {
+    return (
+      <div className="w-screen h-screen bg-black flex flex-col justify-between font-mono p-10 text-white select-none">
+        <div className="max-w-3xl w-full mx-auto space-y-8 flex-1 flex flex-col justify-center">
+          {/* Header */}
+          <div className="space-y-2 border-b border-gray-800 pb-4">
+            <div className="flex items-center space-x-3 text-red-500 animate-pulse">
+              <Cpu className="w-6 h-6" />
+              <h1 className="text-sm font-black tracking-widest uppercase">
+                ★ FOB BOOT LOADER (v1.2-SANDBOX) ★
+              </h1>
+            </div>
+            <p className="text-[10px] text-gray-500 leading-4">
+              AMI INTEL-80386 CPU VIRTUAL BIOS SHIELD // MEMORY STATUS: OK // HDD: /dev/hda1
+            </p>
+          </div>
+
+          {/* Menu */}
+          <div className="space-y-4">
+            <p className="text-xs text-gray-400 font-bold">
+              Please select a kernel to execute (Press keys [1-3] or Click):
+            </p>
+
+            <div className="border border-gray-800 bg-zinc-950 p-4 space-y-2">
+              {availableKernels.map((kernel, index) => {
+                const isSelected = activeSelection === kernel.id;
+                return (
+                  <button
+                    key={kernel.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveSelection(kernel.id);
+                      onSelectKernel?.(kernel.id);
+                    }}
+                    className={`w-full text-left p-3 flex items-center justify-between text-xs font-mono transition-all border ${
+                      isSelected
+                        ? "bg-white text-black border-white"
+                        : "bg-transparent text-gray-400 border-transparent hover:border-gray-800 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className="font-bold">[{index + 1}]</span>
+                      <span className="font-bold tracking-wide">{kernel.name}</span>
+                    </div>
+                    <div className="text-[10px] font-mono opacity-80">
+                      entry: {kernel.entry} // v{kernel.version}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Feedback */}
+          <div className="text-center space-y-2 bg-zinc-900/40 p-4 border border-zinc-900">
+            <p className="text-xs text-red-400 animate-pulse font-extrabold uppercase">
+              ⏳ Automatic boot of standard target in {countdown} seconds...
+            </p>
+            <p className="text-[10px] text-gray-500">
+              Press [1-3] or click an alternative kernel image to interrupt. Press [ENTER] to boot selected.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center text-[10px] text-gray-600 tracking-wider">
+          FOB MULTI-KERNEL REFLECTION RUNTIME LAYER // XSI ISOLATED CHASSIS
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-screen h-screen bg-black flex flex-col justify-between font-mono p-6 text-xs text-gray-300 select-none">
+    <div className="w-screen h-screen bg-black flex flex-col justify-between font-mono p-6 text-xs text-white select-none">
       {/* Top Banner */}
       <div className="flex justify-between items-center border-b-2 border-[#ff4500] pb-2">
         <div className="flex items-center space-x-2.5">
-          <Monitor className="w-5 h-5 text-[#00ff0a] animate-pulse" />
+          <Monitor className="w-5 h-5 text-red-500 animate-pulse" />
           <span className="font-bold tracking-wider text-white select-none text-[12px]">
-            LILO Boot: loading trashlinux........................
+            {activeSelection === "xsi" 
+              ? "XSI Boot: Loading Advanced IPC Isolation Kernels..." 
+              : activeSelection === "fob" 
+              ? "FOB Boot: Spawning Lightweight Core Minimal Container..." 
+              : "LILO Boot: loading trashlinux........................"}
           </span>
         </div>
         <div className="flex items-center space-x-1.5 text-gray-500 text-[10px]">
           <Cpu className="w-3.5 h-3.5" />
-          <span>simdev: /dev/hda1</span>
+          <span>simdev: /dev/hda1 [FLAVOR: {activeSelection.toUpperCase()}]</span>
         </div>
       </div>
 
       {/* Scrolling Log Stream */}
-      <div className="flex-1 my-5 overflow-y-auto pr-2 space-y-1 font-mono text-[11px] leading-4 text-[#00ff0a]">
+      <div className="flex-1 my-5 overflow-y-auto pr-2 space-y-1 font-mono text-[11px] leading-4 text-white">
         {logs.map((log, index) => (
           <div key={index} className="whitespace-pre-wrap">
             {log}
@@ -55,7 +179,7 @@ export function DetailedBootScreen({ logs }: DetailedBootScreenProps) {
           <span className="w-2 h-2 bg-black" />
         </div>
         <div className="text-[10px] font-black uppercase tracking-widest select-none">
-          TRASH LINUX v0.04a [RELEASE STATUS: HEAVY METALS]
+          TRASH LINUX v0.04a [BOOT FLAVOR: {activeSelection.toUpperCase()}]
         </div>
       </div>
     </div>

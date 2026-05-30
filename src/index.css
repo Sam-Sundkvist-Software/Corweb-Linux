@@ -1,115 +1,186 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
+@import "./styles/windows.css";
+@import "./styles/apps.css";
 
 @theme {
-  --font-sans: "Tahoma", "Verdana", sans-serif;
-  --font-mono: "JetBrains Mono", "Courier New", monospace;
+  --font-sans: "Tahoma", "Verdana", "Segoe UI", sans-serif;
+  --font-mono: "Courier", "Courier New", "Consolas", monospace;
 }
 
-/* System-wide Font Overrides (Tahoma, Verdana, no generic fallback MS Sans Serif) */
-body, html, button, input, select, textarea, div, span, p, h1, h2, h3, h4, th, td, pre, code {
+/* System-wide Typography - Tahoma/Verdana for main OS, Courier/Consolas for code */
+body, html {
   font-family: "Tahoma", "Verdana", "Segoe UI", sans-serif;
-}
-
-pre, code, .terminal-text, .mono-font {
-  font-family: "JetBrains Mono", "Courier New", monospace !important;
-}
-
-/* Base cursor states for hyper-accurate desktop fidelity */
-*, html, body {
   cursor: default;
+  background-color: #1a1e20;
 }
 
-/* "pointer" cursor ONLY for links, nothing else */
+/* Core pointer cursors for links and hyperdesktop interaction */
 a, [href], a * {
   cursor: pointer !important;
 }
 
-/* Buttons should use the standard default cursor, not hand pointers */
 button, select, option, label, input[type="button"], input[type="submit"], input[type="checkbox"], input[type="radio"], input[type="range"], [role="button"] {
   cursor: default !important;
 }
 
-/* Beam cursor ONLY for inputs, editable content, or logs/code outputs intended for copying */
-input[type="text"], input[type="search"], input[type="password"], textarea, [contenteditable="true"], .selectable-text, .copyable, .terminal-pane, .code-editor-textarea {
+input[type="text"], input[type="search"], input[type="password"], textarea, [contenteditable="true"], .selectable-text {
   cursor: text !important;
 }
 
-/* System-wide Padding, Margins, and Modern Steel Element Styles (No inline styles) */
+/* -------------------------------------------------------------------------- */
+/* THE SKEUOMORPHIC GLOSS & GRADIENT OVERLAYS */
+/* -------------------------------------------------------------------------- */
+
+/* Standard skeuomorphic inputs with classic 3D bezel and silver/white gradients */
 input[type="text"], input[type="search"], input[type="password"], select, textarea {
   padding: 6px 10px !important;
-  font-size: 12px !important;
+  font-size: 11px !important;
+  font-family: "Tahoma", "Verdana", sans-serif !important;
   border-radius: 4px !important;
-  background-color: #ffffff !important;
-  border: 1px solid #7c7c7c !important;
-  border-top-color: #4a4a4a !important;
-  border-left-color: #4a4a4a !important;
-  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.15) !important;
-  color: #111111 !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f7f7 70%, #eaeaea 100%) !important;
+  border: 2px solid #7f7f7f !important;
+  border-top-color: #404040 !important;
+  border-left-color: #404040 !important;
+  box-shadow: 
+    inset 1px 1.5px 3px rgba(0,0,0,0.25), 
+    0 1px 0 rgba(255,255,255,0.8) !important;
+  color: #1a1a1a !important;
+  font-weight: 500 !important;
 }
 
 input[type="text"]:focus, input[type="search"]:focus, input[type="password"]:focus, select:focus, textarea:focus {
   outline: none !important;
   border-color: #3b82f6 !important;
-  box-shadow: inset 1px 1px 2px rgba(0,0,0,0.15), 0 0 0 2px rgba(59, 130, 246, 0.4) !important;
+  box-shadow: 
+    inset 1px 1.5px 3px rgba(0,0,0,0.25), 
+    0 0 4px rgba(59, 130, 246, 0.6) !important;
 }
 
-/* System-wide Button manual padding increase & Sleek Early KDE/Metallic gradient styling */
-button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn) {
-  padding: 6px 14px !important;
-  font-size: 11.5px !important;
+/* Text editor textareas and general terminals: strictly enforce Courier New / Consolas */
+.monospace-editor, textarea.font-mono, #terminal_container, #terminal_container input {
+  font-family: "Courier", "Courier New", "Consolas", monospace !important;
+  font-size: 12px !important;
+}
+
+/* Silver Glossy 3D Buttons (Consistent, proper contrast, and subtle inconsistencies in highlighting) */
+button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn) {
+  padding: 6px 16px !important;
+  font-size: 11px !important;
+  font-family: "Tahoma", "Verdana", sans-serif !important;
   font-weight: bold !important;
-  border-radius: 4px !important;
-  background: linear-gradient(180deg, #fefefe 0%, #dedede 50%, #d2d2d2 100%) !important;
-  border: 1px solid #7c7c7c !important;
-  border-bottom-color: #555555 !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1.5px 3px rgba(0, 0, 0, 0.12) !important;
-  color: #222222 !important;
+  text-transform: none !important;
+  border-radius: 3px !important; /* Elegant slightly square retro corners */
+  background: linear-gradient(180deg, 
+    #ffffff 0%, 
+    #eceae6 15%, 
+    #d8d4cd 50%, 
+    #bfb9ae 100%) !important;
+  background-color: #d4d0c8 !important; /* Classic sensible grey */
+  border: 2px solid !important;
+  border-color: #ffffff #5e5e5e #5e5e5e #ffffff !important;
+  color: #1c1a16 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 
+    0 1.5px 3px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
   transition: all 0.08s ease-in-out !important;
+  transform: scale(1);
 }
 
-button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):hover {
-  background: linear-gradient(180deg, #ffffff 0%, #ececec 50%, #e0e0e0 100%) !important;
-  border-color: #4f46e5 !important;
+button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn):hover {
+  background: linear-gradient(180deg, 
+    #ffffff 0%, 
+    #faf6ed 15%, 
+    #e7e3da 50%, 
+    #cbd2db 100%) !important; /* subtle platinum blue hue on hover */
+  border-color: #ffffff #2a2a2a #2a2a2a #ffffff !important;
   color: #000000 !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 0 0 1px rgba(79, 70, 229, 0.2), 0 1.5px 3px rgba(0,0,0,0.15) !important;
+  box-shadow: 
+    0 2px 4px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
 }
 
-button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):active {
-  background: linear-gradient(180deg, #d0d0d0 0%, #c4c4c4 100%) !important;
-  border-color: #4338ca !important;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn):active {
+  background: linear-gradient(180deg, 
+    #a8a297 0%, 
+    #c4beb3 40%, 
+    #d0cac0 100%) !important;
+  border-color: #404040 #ffffff #ffffff #404040 !important;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.35),
+    0 0.5px 1px rgba(0, 0, 0, 0.1) !important;
 }
 
-button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):disabled {
-  background: #eaeaea !important;
-  border-color: #cccccc !important;
-  color: #999999 !important;
+button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn):disabled {
+  background: #e2e2e2 !important;
+  border-color: #ffffff #bbbbbb #bbbbbb #ffffff !important;
+  color: #7f7f7f !important;
+  text-shadow: none !important;
   box-shadow: none !important;
   cursor: not-allowed !important;
+  transform: none !important;
 }
 
-/* Custom scrollbar matching sleek early Linux panels */
+/* Subtle Inconsistent Silver Buttons: specialized color tints for specific behavioral functions */
+button.btn-danger, button[class*="text-red"], button[title="Close"], button[onClick*="logout"], button[onClick*="reboot"] {
+  border-color: #ffffff #6b1414 #6b1414 #ffffff !important;
+  /* soft crimson silver glaze */
+  background: linear-gradient(180deg, #fff5f5 0%, #fee2e2 20%, #fca5a5 50%, #f87171 100%) !important;
+  color: #5c0f0f !important;
+}
+button.btn-danger:hover {
+  background: linear-gradient(180deg, #fff5f5 0%, #fee2e2 10%, #fca5a5 40%, #ef4444 100%) !important;
+  color: #ffffff !important;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.2) !important;
+}
+
+button.btn-success, button[class*="text-emerald"], button[class*="bg-emerald"] {
+  border-color: #ffffff #14532d #14532d #ffffff !important;
+  /* soft moss jade silver glaze */
+  background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 20%, #bbf7d0 50%, #86efac 100%) !important;
+  color: #14532d !important;
+}
+
+/* Scrollbars: Classic desktop silver-gray tracks with high precision tactile feel */
 ::-webkit-scrollbar {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 ::-webkit-scrollbar-track {
-  background: #ede9e2;
-  border: 1px solid #b2b2b2;
+  background: #eae6df;
+  border: 1px solid #9c9990;
+  box-shadow: inset 1.5px 1.5px 3px rgba(0,0,0,0.15);
 }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #eeeeee 0%, #cccccc 100%);
-  border: 2px solid #ede9e2;
-  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.8), 1px 1px 2px rgba(0,0,0,0.2);
+  background: linear-gradient(180deg, 
+    #ffffff 0%, 
+    #eae6df 30%, 
+    #d4d0c8 60%, 
+    #b0aba4 100%);
+  border: 1px solid #7a766f;
+  border-radius: 2px;
+  box-shadow: 
+    inset 0 1px 0 rgba(255,255,255,0.85),
+    0 1px 2.5px rgba(0,0,0,0.18);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #fbfbfb 0%, #b8b8b8 100%);
+  background: linear-gradient(180deg, 
+    #ffffff 0%, 
+    #f2eee6 20%, 
+    #e1ddd5 50%, 
+    #bcb7af 100%);
+  border-color: #5e5a53;
 }
 ::-webkit-scrollbar-thumb:active {
-  background: #a8a8a8;
+  background: linear-gradient(180deg, 
+    #a8a297 0%, 
+    #bcb7af 50%, 
+    #cbd2db 100%);
+  border-color: #404040;
 }
 
+/* Basic helper utilities */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -117,3 +188,77 @@ button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):disabled {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* -------------------------------------------------------------------------- */
+/* CUSTOM APPLICATION COMPONENT STYLES & REFLECTIONS */
+/* -------------------------------------------------------------------------- */
+
+/* Diagonal Glass glare shine */
+.gloss-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.22) 0%, 
+    rgba(255, 255, 255, 0.09) 24%, 
+    rgba(255, 255, 255, 0) 25%, 
+    rgba(255, 255, 255, 0) 50%, 
+    rgba(255, 255, 255, 0.04) 51%, 
+    rgba(255, 255, 255, 0) 65%);
+}
+
+/* -------------------------------------------------------------------------- */
+/* WINDOW ARCHITECTURAL CONTEXT EFFECTS */
+/* -------------------------------------------------------------------------- */
+
+/* Glow active window */
+.glow-win-active {
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.45), 
+    0 0 1px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* MOCK HARDWARE STATUS LED WIDGET */
+/* -------------------------------------------------------------------------- */
+.glowing-led-green {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #72db34;
+  box-shadow: 0 0 3px #72db34, inset 0 0.5px 0.5px white;
+  border: 1px solid #4a9117;
+}
+
+.glowing-led-red {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #f75531;
+  box-shadow: 0 0 3px #f75531, inset 0 0.5px 0.5px white;
+  border: 1px solid #aa290b;
+}
+
+/* -------------------------------------------------------------------------- */
+/* REBOOT SHIMMER EFFECT */
+/* -------------------------------------------------------------------------- */
+.shimmer-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  animation: shimmer-sweep-anim 8s infinite linear;
+}
+@keyframes shimmer-sweep-anim {
+  0% { left: -100%; }
+  30% { left: 100%; }
+  100% { left: 100%; }
+}
+

@@ -1,0 +1,97 @@
+/* ========================================================================== */
+/* COHESIVE RETRO APPLET COMPONENTS & TYPOGRAPHY                             */
+/* ========================================================================== */
+
+/* File Manager VFS lists */
+.vfs-tree-container {
+  background: #ffffff !important;
+  border: 1px solid #9ca3af !important;
+  border-radius: 4px;
+  box-shadow: inset 1px 1.5px 3px rgba(0,0,0,0.08);
+}
+
+.vfs-item-active {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+/* Scrollpad & Leafpad Text editing buffer layout */
+.leafpad-textarea {
+  font-family: "Courier", "Courier New", "Consolas", monospace !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  background-color: #fdfdfc !important;
+  color: #1c1917 !important;
+  padding: 10px !important;
+  border: 1px solid #8c8a85 !important;
+  border-radius: 3px !important;
+  resize: none;
+  outline: none;
+  box-shadow: inset 1px 1.5px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.leafpad-textarea:focus {
+  border-color: #4f46e5 !important;
+  box-shadow: inset 1px 1.5px 3px rgba(0, 0, 0, 0.1), 0 0 3px rgba(79, 70, 229, 0.3) !important;
+}
+
+/* Terminal simulator components */
+.terminal-screen {
+  font-family: "Courier", "Courier New", "Consolas", monospace !important;
+  background-color: #0c0f13 !important;
+  color: #39ff14 !important;
+  border: 1px solid #2d3748 !important;
+  border-radius: 4px;
+  padding: 12px !important;
+  line-height: 1.4 !important;
+  text-shadow: 0 0 2px rgba(57, 255, 20, 0.25);
+}
+
+.terminal-prompt-input {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  font-family: "Courier", "Courier New", "Consolas", monospace !important;
+  font-size: 12.5px !important;
+  width: 100%;
+}
+
+/* Minesweeper board styling */
+.minesweeper-tile {
+  width: 24px;
+  height: 24px;
+  border-radius: 2px !important;
+  font-family: "Tahoma", "Verdana", sans-serif !important;
+  font-weight: 900 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px !important;
+}
+
+.minesweeper-tile-unrevealed {
+  background: linear-gradient(180deg, #ffffff 0%, #e5e5e5 50%, #d4d0c8 100%) !important;
+  border: 1px solid #7a766f !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 1px rgba(0,0,0,0.08) !important;
+}
+
+.minesweeper-tile-revealed {
+  background-color: #eae6df !important;
+  border: 1px solid #cbd2db !important;
+}
+
+/* System Monitor Spawner panels */
+.system-specs-box {
+  background-color: #f7f5f0 !important;
+  border: 1px solid #b0aba4 !important;
+  border-radius: 4px;
+  padding: 8px !important;
+  font-size: 11px !important;
+}
+
+/* Global inputs narrow outline radius enhancements */
+input, select, textarea {
+  border-radius: 4px !important;
+}

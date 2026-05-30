@@ -31,9 +31,10 @@ export interface KernelInstance {
   getPanicMessage: () => string;
   triggerPanic: (reason: string) => void;
   registerPanicListener: (listener: (msg: string) => void) => () => void;
+  flushVFSToDisk: () => Promise<boolean>;
 }
 
-export const createSecureKernel = (initialVFS: VFSNode): KernelInstance => {
+export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "xsi" | "fob" = "secure"): KernelInstance => {
   let vfsRoot: VFSNode = JSON.parse(JSON.stringify(initialVFS));
   
   // ==========================================
@@ -46,6 +47,32 @@ export const createSecureKernel = (initialVFS: VFSNode): KernelInstance => {
       if (!etcNode) {
         mkdirVFS(vfsRoot, "/etc");
       }
+
+      // Ensure /etc/bootaid.json exists
+      const defaultBootAid = {
+        default: "createSecureKernel",
+        kernels: [
+          { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" },
+          { id: "xsi", name: "XSI Advanced Isolation Kernel", entry: "createXsiKernel", version: "2.8.2-xsi-386" },
+          { id: "fob", name: "FOB Minimal Core Kernel", entry: "createFobKernel", version: "1.0.0-fob-core" }
+        ]
+      };
+      const bootaidNode = resolveNode(vfsRoot, "/etc/bootaid.json");
+      if (!bootaidNode || !bootaidNode.content) {
+        writeVFSFile(vfsRoot, "/etc/bootaid.json", JSON.stringify(defaultBootAid, null, 2));
+      }
+
+      // Ensure /proc exists
+      if (!resolveNode(vfsRoot, "/proc")) {
+        mkdirVFS(vfsRoot, "/proc");
+      }
+      let versionStr = "Linux version 2.6.15-26-386 (GCC 4.0.3) PREEMPT GMT 2006";
+      if (flavor === "xsi") {
+        versionStr = "Linux version 2.8.2-xsi-386 (GCC 4.2.1) PREEMPT PRE-RELEASE XSI 2006";
+      } else if (flavor === "fob") {
+        versionStr = "Linux version 1.0.0-fob-core (GCC 3.4.6) SLIM-SMP x86 FOB-OS 2006";
+      }
+      writeVFSFile(vfsRoot, "/proc/version", versionStr);
 
       // 2. Ensure /etc/users.json exists and is pristine
       const usersFile = resolveNode(vfsRoot, "/etc/users.json");
@@ -105,6 +132,20 @@ export const createSecureKernel = (initialVFS: VFSNode): KernelInstance => {
           mkdirVFS(vfsRoot, `/home/${username}/Desktop`);
           mkdirVFS(vfsRoot, `/home/${username}/Documents`);
         }
+        
+        // Seed default poor-quality media files for player apps
+        if (username !== "root") {
+          const deskPath = `/home/${username}/Desktop`;
+          if (!resolveNode(vfsRoot, `${deskPath}/classic_sunset.jpg`)) {
+            writeVFSFile(vfsRoot, `${deskPath}/classic_sunset.jpg`, `[IMAGE_SUNSET_MOCK] width=64;height=64;pixels=orange,sunset,retro;title=Vintage Sunset 2006`);
+          }
+          if (!resolveNode(vfsRoot, `${deskPath}/retro_vibes.mp3`)) {
+            writeVFSFile(vfsRoot, `${deskPath}/retro_vibes.mp3`, `[AUDIO_CHIPTUNE_MOCK] tempo=130;melody=C4,D4,E4,G4,A4,C5,E5;noise=high;title=Vintage Chiptune`);
+          }
+          if (!resolveNode(vfsRoot, `${deskPath}/matrix_screensaver.mp4`)) {
+            writeVFSFile(vfsRoot, `${deskPath}/matrix_screensaver.mp4`, `[VIDEO_MATRIX_MOCK] fps=4;resolution=32x24;color=matrix;title=Matrix Code Screen`);
+          }
+        }
       }
     } catch (e) {
       console.error("[FSCK] Failed to self-heal VFS:", e);
@@ -137,7 +178,6 @@ export const createSecureKernel = (initialVFS: VFSNode): KernelInstance => {
   const triggerVFSChange = () => {
     const deepCopy = JSON.parse(JSON.stringify(vfsRoot));
     vfsListeners.forEach((listener) => listener(deepCopy));
-    saveVFSToDisk(vfsRoot);
   };
 
   const writeSyslog = (msg: string) => {
@@ -203,7 +243,7 @@ export const createSecureKernel = (initialVFS: VFSNode): KernelInstance => {
       throw new Error("System execution prohibited: Kernel is in a panicked state.");
     }
     const pid = nextPid++;
-    const procDefOwner = name === "systemBackgroundProcessD" || name === "kernel" || name === "syslogd.service" || name === "journald-logger.service" || name === "memcleanG.service"
+    const procDefOwner = name === "systemBackgroundProcessD" || name === "kernel" || name === "syslogd.service" || name === "journald-logger.service" || name === "memcleanG.service" || name === "xsi-ipc-broker.service"
       ? "root"
       : currentLoggedInUser;
 
@@ -240,7 +280,14 @@ export const createSecureKernel = (initialVFS: VFSNode): KernelInstance => {
     return false;
   };
 
-  const services: DaemonService[] = [
+  const services: DaemonService[] = flavor === "fob" ? [
+    { name: "syslogd.service", description: "System Logging Service", status: "active", pid: 14, logs: ["syslogd started."] }
+  ] : flavor === "xsi" ? [
+    { name: "syslogd.service", description: "System Logging Service", status: "active", pid: 14, logs: ["syslogd started."] },
+    { name: "journald-logger.service", description: "Journal Logging Service", status: "active", pid: 15, logs: ["journald started."] },
+    { name: "memcleanG.service", description: "Memory Garbage Sweep service", status: "active", pid: 16, logs: ["Sweep thread activated."] },
+    { name: "xsi-ipc-broker.service", description: "XSI IPC Broker daemon", status: "active", pid: 17, logs: ["IPC subsystem initialized.", "Semaphores active."] }
+  ] : [
     { name: "syslogd.service", description: "System Logging Service", status: "active", pid: 14, logs: ["syslogd started."] },
     { name: "journald-logger.service", description: "Journal Logging Service", status: "active", pid: 15, logs: ["journald started."] },
     { name: "memcleanG.service", description: "Memory Garbage Sweep service", status: "active", pid: 16, logs: ["Sweep thread activated."] },
@@ -778,6 +825,14 @@ export const createSecureKernel = (initialVFS: VFSNode): KernelInstance => {
       return () => {
         panicListeners.delete(listener);
       };
+    },
+    flushVFSToDisk: async () => {
+      writeSyslog(`[SYSTEM] Flushing cached in-memory VFS and settings to persistent IndexedDB...`);
+      return await saveVFSToDisk(vfsRoot);
     }
   };
 };
+
+export const createSecureKernel = (initialVFS: VFSNode): KernelInstance => createKernelWithFlavor(initialVFS, "secure");
+export const createXsiKernel = (initialVFS: VFSNode): KernelInstance => createKernelWithFlavor(initialVFS, "xsi");
+export const createFobKernel = (initialVFS: VFSNode): KernelInstance => createKernelWithFlavor(initialVFS, "fob");

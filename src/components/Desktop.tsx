@@ -13,6 +13,9 @@ import MinesweeperApp from "./apps/MinesweeperApp";
 import SurferApp from "./apps/SurferApp";
 import SystemSettingsApp from "./apps/SystemSettingsApp";
 import SystemFlagEditorApp from "./apps/SystemFlagEditorApp";
+import ImageViewerApp from "./apps/ImageViewerApp";
+import VideoPlayerApp from "./apps/VideoPlayerApp";
+import MusicPlayerApp from "./apps/MusicPlayerApp";
 import SystemDialogs from "./SystemDialogs";
 
 // Boot Screens imports
@@ -37,7 +40,10 @@ import {
   Settings as SettingsIcon,
   User as UserIcon,
   ShieldCheck,
-  Activity
+  Activity,
+  Image as ImageIcon,
+  Video,
+  Music
 } from "lucide-react";
 
 export default function Desktop() {
@@ -118,7 +124,15 @@ export default function Desktop() {
 
   // 2. DMESG BOOT SEQUENCE COVERAGE
   if (os.isBooting) {
-    return <DetailedBootScreen logs={os.bootLog} />;
+    return (
+      <DetailedBootScreen
+        logs={os.bootLog}
+        bootLoaderPhase={(os as any).bootLoaderPhase}
+        availableKernels={(os as any).availableKernels}
+        selectedKernelId={(os as any).selectedKernelId}
+        onSelectKernel={(os as any).selectKernelAndBoot}
+      />
+    );
   }
 
   // 3. GDM LOGIN GREETER COVERAGE
@@ -141,11 +155,19 @@ export default function Desktop() {
   // Double click handler for desktop items
   const handleDesktopShortcutDoubleClick = (name: string, type: NodeType) => {
     const user = os.currentUser;
+    const fullPath = `/home/${user}/Desktop/${name}`;
     if (type === NodeType.DIRECTORY) {
-      os.launchApp("fileManagerUF", "VFS Node Manager", { content: `/home/${user}/Desktop/${name}` });
+      os.launchApp("fileManagerUF", "VFS Node Manager", { content: fullPath });
     } else {
-      if (name.endsWith(".txt")) {
-        os.launchApp("leafpadUF", `Leafpad - ${name}`, { content: `/home/${user}/Desktop/${name}` });
+      const lower = name.toLowerCase();
+      if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".gif") || lower.endsWith(".bmp")) {
+        os.launchApp("imageViewerUF", `Image Viewer - ${name}`, { content: fullPath, width: 620, height: 460 });
+      } else if (lower.endsWith(".mp4") || lower.endsWith(".avi") || lower.endsWith(".mov") || lower.endsWith(".mkv") || lower.endsWith(".webm")) {
+        os.launchApp("videoPlayerUF", `Video Player - ${name}`, { content: fullPath, width: 620, height: 480 });
+      } else if (lower.endsWith(".mp3") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".aac")) {
+        os.launchApp("musicPlayerUF", `Music Player - ${name}`, { content: fullPath, width: 620, height: 460 });
+      } else if (name.endsWith(".txt")) {
+        os.launchApp("leafpadUF", `Leafpad - ${name}`, { content: fullPath });
       } else if (name.endsWith(".desktop")) {
         if (name.includes("Minesweeper")) {
           os.launchApp("minesweeperUF", "Minesweeper Retro");
@@ -172,7 +194,7 @@ export default function Desktop() {
   };
 
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden relative select-none bg-[#111314] font-mono text-xs">
+    <div className="w-screen h-screen flex flex-col overflow-hidden relative select-none bg-[#1a1e20] font-sans text-xs">
       
       {/* Immersive UI Wallpaper Gradient configured in Control Panel */}
       <div
@@ -184,7 +206,7 @@ export default function Desktop() {
       />
 
       {/* TOP TRASHLINUX PANEL BAR */}
-      <div className="h-6 w-full bg-[#d4d0c8] border-b-2 border-b-[#808080] flex items-center justify-between px-2 text-[11px] text-black z-50 select-none">
+      <div className="h-7 w-full bg-gradient-to-b from-[#fafafa] via-[#e2e2e2] to-[#cccccc] border-b border-b-[#a0a0a0] flex items-center justify-between px-2 text-[11px] text-black z-50 select-none shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1.5px_3px_rgba(0,0,0,0.15)]">
         <div className="flex items-center space-x-1">
           {/* Main system branding badge */}
           <div 
@@ -289,6 +311,39 @@ export default function Desktop() {
                 >
                   <SettingsIcon className="w-3.5 h-3.5 text-slate-800" />
                   <span className="font-black">[systemctl rules]</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    os.launchApp("imageViewerUF", "Image Viewer", { width: 620, height: 460 });
+                    setAppsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/30"
+                >
+                  <ImageIcon className="w-3.5 h-3.5 text-slate-800" />
+                  <span className="font-bold">image viewer loader</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    os.launchApp("videoPlayerUF", "Video Player", { width: 620, height: 480 });
+                    setAppsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/30"
+                >
+                  <Video className="w-3.5 h-3.5 text-slate-800" />
+                  <span className="font-bold">video downscaler player</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    os.launchApp("musicPlayerUF", "Music Player", { width: 620, height: 460 });
+                    setAppsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/30"
+                >
+                  <Music className="w-3.5 h-3.5 text-slate-800" />
+                  <span className="font-bold">music chiptune synthesizer</span>
                 </button>
 
                 <button
@@ -570,6 +625,24 @@ export default function Desktop() {
               {win.appId === "surferUF" && <SurferApp syscall={syscall} />}
               {win.appId === "controlPanelUFD" && <SystemSettingsApp syscall={syscall} />}
               {win.appId === "systemFlagEditorUFD" && <SystemFlagEditorApp syscall={syscall} />}
+              {win.appId === "imageViewerUF" && (
+                <ImageViewerApp
+                  syscall={syscall}
+                  initialFilePath={win.args && win.args[0] ? win.args[0] : undefined}
+                />
+              )}
+              {win.appId === "videoPlayerUF" && (
+                <VideoPlayerApp
+                  syscall={syscall}
+                  initialFilePath={win.args && win.args[0] ? win.args[0] : undefined}
+                />
+              )}
+              {win.appId === "musicPlayerUF" && (
+                <MusicPlayerApp
+                  syscall={syscall}
+                  initialFilePath={win.args && win.args[0] ? win.args[0] : undefined}
+                />
+              )}
             </WindowFrame>
           );
         })}
@@ -613,7 +686,7 @@ export default function Desktop() {
       </div>
 
       {/* BOTTOM TASKS TRAY PANEL BAR */}
-      <div className="h-6 w-full bg-[#d4d0c8] border-t-2 border-t-white flex items-center justify-between px-2 text-xs text-black select-none z-40">
+      <div className="h-7 w-full bg-gradient-to-b from-[#fafafa] via-[#e2e2e2] to-[#cccccc] border-t border-t-white border-b border-b-[#a0a0a0] flex items-center justify-between px-2 text-xs text-black select-none z-40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
         <div className="flex items-center space-x-1 flex-1 min-w-0 pr-4">
           {/* Toggle ALL Trigger */}
           <button

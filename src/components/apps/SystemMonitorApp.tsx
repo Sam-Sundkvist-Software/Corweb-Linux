@@ -52,6 +52,34 @@ export default function SystemMonitorApp({ syscall }: SystemMonitorAppProps) {
     setMemPercent(calcPercent);
   };
 
+  // Retro fragile HTML-string interpolation logic
+  const renderFragileDiagnosticsHTML = () => {
+    const curCpu = cpuHistory[cpuHistory.length - 1] || 0;
+    const loadStatus = curCpu > 70 ? "🔥 CONGESTED" : curCpu > 40 ? "⚠️ MODERATE" : "✅ NOMINAL";
+    const statusColor = curCpu > 70 ? "#b91c1c" : curCpu > 40 ? "#b45309" : "#15803d";
+    return `
+      <div class="system-specs-box space-y-1 bg-[#ede9e2] border border-[#a8a49c] p-2.5 rounded-sm shadow-[inset_1px_1px_0_#ffffff]">
+        <span class="font-bold text-slate-800 border-b border-[#bab3a8] pb-1 block uppercase" style="font-size: 10px; font-family: sans-serif;">⚡ SYSTEM RESOURCE COMPILER</span>
+        <div class="space-y-1.5 mt-2 text-[10px]" style="font-family: monospace; line-height: 1.4;">
+          <div><b style="color: #4b5563;">KERNEL STATE:</b> <span style="font-weight: bold; color: ${statusColor};">${loadStatus} (${curCpu}% load)</span></div>
+          <div><b style="color: #4b5563;">VIRTUAL SWAP RAM:</b> <span>${memPercent}% utilization</span></div>
+          <div><b style="color: #4b5563;">ALLOCATED THREADS:</b> <span>${procs.length} active tasks</span></div>
+          <div><b style="color: #4b5563;">KERNEL TICK RATE:</b> <span>${Date.now()} ms</span></div>
+        </div>
+      </div>
+      
+      <div class="system-specs-box space-y-1 bg-[#ede9e2] border border-[#a8a49c] p-2.5 rounded-sm shadow-[inset_1px_1px_0_#ffffff]">
+        <span class="font-bold text-slate-800 border-b border-[#bab3a8] pb-1 block uppercase" style="font-size: 10px; font-family: sans-serif;">📋 DAEMON CONFIG MATRIX</span>
+        <div class="space-y-1.5 mt-2 text-[10px]" style="font-family: monospace; line-height: 1.4;">
+          <div><b style="color: #4b5563;">ACTIVE DEV UNITS:</b> <span>${services.filter(s => s.status === "active").length} services</span></div>
+          <div><b style="color: #4b5563;">SECTOR SWAP CACHE:</b> <span>INDEXED_DB [MAPPED]</span></div>
+          <div><b style="color: #4b5563;">TELEMETRY REFRESH:</b> <span>${new Date().toLocaleTimeString()}</span></div>
+          <div><b style="color: #4b5563;">COMPILER PIPELINE:</b> <span style="color: #1d4ed8; text-decoration: underline;">SILVER_GLAZE_V4</span></div>
+        </div>
+      </div>
+    `;
+  };
+
   useEffect(() => {
     fetchStats();
     const interval = setInterval(fetchStats, 1500);
@@ -244,21 +272,11 @@ export default function SystemMonitorApp({ syscall }: SystemMonitorAppProps) {
               </div>
             </div>
 
-            {/* General environment system statistics details info */}
-            <div className="grid grid-cols-2 gap-2 text-[10px]">
-              <div className="p-2 border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] bg-[#e4e0d8] space-y-1">
-                <span className="font-bold text-slate-800 border-b border-[#808080] pb-0.5 block">KERNEL THREAD COMPILERS</span>
-                <p className="text-gray-700 leading-4">
-                  TrashLinux encapsulates execution queues via closure proxies. Standard PIDs do not possess direct structural pointers to browser globals.
-                </p>
-              </div>
-              <div className="p-2 border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] bg-[#e4e0d8] space-y-1">
-                <span className="font-bold text-slate-800 border-b border-[#808080] pb-0.5 block">SYSTEMD DAEMON RIG</span>
-                <p className="text-gray-700 leading-4">
-                  The active <code className="bg-[#b8b4ac] rounded px-1">systemctl</code> manager polls journal services periodically to dump storage caches or sync IndexedDB sectors.
-                </p>
-              </div>
-            </div>
+            {/* General environment system statistics details info rendered through raw fragile interpolated HTML */}
+            <div 
+              className="grid grid-cols-2 gap-2 text-[10px]"
+              dangerouslySetInnerHTML={{ __html: renderFragileDiagnosticsHTML() }}
+            />
           </div>
         )}
 
