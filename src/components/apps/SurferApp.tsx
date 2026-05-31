@@ -20,15 +20,23 @@ export default function SurferApp({ syscall }: SurferAppProps) {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isOnline, setIsOnline] = useState(true);
 
-  // Check networking status on mount and when URL shifts
+  // Check networking status on mount and when URL shifts, requiring web-dns.service to be active
   useEffect(() => {
-    try {
-      const cfg = syscall.getSettings();
-      setIsOnline(cfg.networking_enabled !== false);
-    } catch {
-      setIsOnline(true);
-    }
-  }, [currentUrl]);
+    const checkState = () => {
+      try {
+        const cfg = syscall.getSettings();
+        const svcs = syscall.getServices();
+        const dnsSvc = svcs.find((s) => s.name === "web-dns.service");
+        const dnsActive = dnsSvc ? dnsSvc.status === "active" : true;
+        setIsOnline(cfg.networking_enabled !== false && dnsActive);
+      } catch {
+        setIsOnline(true);
+      }
+    };
+    checkState();
+    const interval = setInterval(checkState, 1500);
+    return () => clearInterval(interval);
+  }, [currentUrl, syscall]);
 
   const visitUrl = (url: string) => {
     const formatted = url.startsWith("http") ? url : `http://${url}`;

@@ -1,0 +1,413 @@
+/* ========================================================================== */
+/* TRASHLINUX COMPOSITOR EMULATION COMPOSITES                                  */
+/* ========================================================================== */
+
+/* Keyframe animations for Corrupted / Broken / Glitched Theme */
+@keyframes tlnx-anim-text-vibrate {
+  0% { text-shadow: 1px 1px 0 #00ffff, -1px -1px 0 #ff00ff; transform: translate(0.5px, 0.5px); }
+  25% { text-shadow: -1.5px 0.5px 0 #00ffff, 0.5px -1.5px 0 #ff00ff; transform: translate(-0.5px, -0.5px); }
+  50% { text-shadow: 0.5px -0.5px 0 #ff00ff, -0.5px 0.5px 0 #00ffff; transform: translate(0.3px, -0.3px); }
+  75% { text-shadow: -1px -1px 0 #00ffff, 1px 1px 0 #ff00ff; transform: translate(-0.3px, 0.3px); }
+  100% { text-shadow: 1px -1px 0 #00ffff, -1px 1px 0 #ff00ff; transform: translate(0.5px, 0.5px); }
+}
+
+@keyframes tlnx-anim-screen-vibrate {
+  0% { transform: translate(0.5px, 0.5px) rotate(0.1deg); }
+  50% { transform: translate(-0.5px, -0.5px) rotate(-0.1deg); }
+  100% { transform: translate(0px, 0.5px) rotate(0deg); }
+}
+
+@keyframes tlnx-anim-artifact-flash {
+  0% { opacity: 0.35; background-color: #1a0101; }
+  50% { opacity: 0.95; background-color: #3d0202; }
+  100% { opacity: 0.35; background-color: #130000; }
+}
+
+/* 1. WINDOWS 95 THEME PRESENTS */
+.tlnx-theme-windows-95 {
+  & .h-7 {
+    /* Restyle panels into Windows 95 classic 3D gray layouts */
+    background: #c0c0c0 !important;
+    border-top: 2px solid #ffffff !important;
+    border-left: 2px solid #ffffff !important;
+    border-bottom: 2px solid #808080 !important;
+    border-right: 2px solid #808080 !important;
+    box-shadow: none !important;
+    color: #000000 !important;
+    & a, & span, & div {
+      font-family: "Tahoma", sans-serif !important;
+    }
+  }
+
+  & .silver-window {
+    background-color: #c0c0c0 !important;
+    border-radius: 0px !important;
+    border: 2px solid !important;
+    border-color: #ffffff #0a0a0a #0a0a0a #ffffff !important;
+    box-shadow: inset 1px 1px 0px #dfdfdf, inset -1px -1px 0px #808080 !important;
+    
+    & > .silver-header {
+      background: #000080 !important;
+      color: #ffffff !important;
+      border-radius: 0px !important;
+      border-bottom: none !important;
+      height: 22px !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+      font-family: "Tahoma", "Geneva", sans-serif !important;
+      padding-top: 2px !important;
+      padding-bottom: 2px !important;
+      
+      & .silver-window-title {
+        color: #ffffff !important;
+        font-family: "Tahoma", sans-serif !important;
+        font-weight: bold !important;
+        font-size: 11px !important;
+      }
+      
+      & .silver-btn-grp {
+        & > .silver-btn {
+          background: #c0c0c0 !important;
+          border-radius: 0px !important;
+          border: 1px solid !important;
+          border-color: #ffffff #404040 #404040 #ffffff !important;
+          box-shadow: none !important;
+          color: #000000 !important;
+          text-shadow: none !important;
+          font-weight: bold !important;
+          font-family: "Courier New", monospace !important;
+          font-size: 11px !important;
+          width: 16px !important;
+          height: 16px !important;
+          
+          &:hover {
+            background: #d4d0c8 !important;
+          }
+          
+          &:active {
+            border-color: #404040 #ffffff #ffffff #404040 !important;
+            background: #c0c0c0 !important;
+            box-shadow: none !important;
+          }
+        }
+      }
+    }
+
+    & > .silver-header-inactive {
+      background: #808080 !important;
+      color: #c0c0c0 !important;
+      & .silver-window-title {
+        color: #c0c0c0 !important;
+      }
+    }
+
+    /* Override input elements to have sharper, blockier grey backgrounds */
+    & input[type="text"], & select, & textarea {
+      border-radius: 0px !important;
+      border-color: #404040 #dfdfdf #dfdfdf #404040 !important;
+      background: #ffffff !important;
+      box-shadow: inset 1px 1px 2px #000000 !important;
+    }
+    
+    /* Program buttons bevel overrides */
+    & button {
+      border-radius: 0px !important;
+      border: 2px solid !important;
+      background: #c0c0c0 !important;
+      border-color: #ffffff #404040 #404040 #ffffff !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+      font-weight: bold !important;
+      
+      &:hover {
+        background: #dfdfdf !important;
+      }
+      
+      &:active {
+        border-color: #404040 #ffffff #ffffff #404040 !important;
+        background: #c0c0c0 !important;
+      }
+    }
+  }
+}
+
+/* 2. UBUNTU 2006 (HUMAN EARTHY) THEME COMPOSITES */
+.tlnx-theme-ubuntu-2006 {
+  & .h-7 {
+    background: linear-gradient(to bottom, #4d362d, #3c2317) !important;
+    border-b: 1px solid #211108 !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+    color: #efebe7 !important;
+    
+    & div, & span {
+      color: #efebe7 !important;
+    }
+    
+    & .bg-\[\#b8b4ac\] {
+      background-color: #5c4135 !important;
+      border-color: #211108 !important;
+      color: #efebe7 !important;
+    }
+    
+    & button {
+      color: #efebe7 !important;
+      &:hover {
+        background-color: #f07746 !important;
+      }
+    }
+  }
+
+  & .silver-window {
+    background-color: #efebe7 !important;
+    border-radius: 5px !important;
+    border: 1px solid #3c2317 !important;
+    box-shadow: 2px 4px 12px rgba(60, 35, 23, 0.3) !important;
+    
+    & > .silver-header {
+      background: linear-gradient(90deg, #3c2317 0%, #e95420 100%) !important;
+      color: #efebe7 !important;
+      border-radius: 4px 4px 0 0 !important;
+      border-bottom: 1px solid #3c2317 !important;
+      height: 28px !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+      
+      & .silver-window-title {
+        color: #efebe7 !important;
+        font-family: "DejaVu Sans", "Helvetica Neue", Arial, sans-serif !important;
+        font-weight: bold !important;
+      }
+      
+      & .silver-btn-grp {
+        & > .silver-btn {
+          background: linear-gradient(180deg, #f78d68 0%, #e95420 100%) !important;
+          border-radius: 50% !important;
+          border: 1px solid #211108 !important;
+          color: #ffffff !important;
+          width: 14px !important;
+          height: 14px !important;
+          font-family: inherit !important;
+          font-size: 8px !important;
+          box-shadow: 0 1px 1px rgba(0,0,0,0.2) !important;
+          text-shadow: none !important;
+          
+          &:hover {
+            background: #f07746 !important;
+          }
+          
+          &:active {
+            background: #b23a10 !important;
+          }
+        }
+      }
+    }
+
+    & > .silver-header-inactive {
+      background: #7a6e67 !important;
+      border-bottom-color: #4e443e !important;
+      & .silver-window-title {
+        color: #dfdbd2 !important;
+      }
+    }
+
+    & input[type="text"], & select, & textarea {
+      border-radius: 3px !important;
+      border: 1px solid #8e8072 !important;
+      background: #ffffff !important;
+    }
+    
+    & button {
+      border-radius: 4px !important;
+      border: 1px solid #3c2317 !important;
+      background: linear-gradient(180deg, #f78d68 0%, #e95420 100%) !important;
+      color: #ffffff !important;
+      box-shadow: none !important;
+      text-shadow: 1px 1px 0 rgba(0,0,0,0.2) !important;
+      
+      &:hover {
+        background: linear-gradient(180deg, #fa9f7e 0%, #f06a38 100%) !important;
+      }
+      
+      &:active {
+        background: #c34113 !important;
+      }
+    }
+  }
+}
+
+/* 3. EXPERIMENTAL BROKEN (CORRUPT RECT SECTOR) THEME */
+.tlnx-theme-broken {
+  animation: tlnx-anim-screen-vibrate 0.15s infinite alternate !important;
+
+  & .h-7 {
+    background: repeating-linear-gradient(45deg, #111, #111 12px, #ff0055 12px, #ff0055 24px) !important;
+    border-bottom: 3px dashed #ffff00 !important;
+    color: #00ff00 !important;
+    font-family: monospace !important;
+  }
+
+  & .silver-window {
+    background-color: #1a0101 !important;
+    color: #ff0055 !important;
+    border: 3px dashed #ffff00 !important;
+    border-radius: 20px 2px 20px 2px !important;
+    box-shadow: 0px 0px 20px rgba(255, 0, 85, 0.9) !important;
+    transform: skewX(-0.5deg) !important;
+    
+    & > .silver-header {
+      background: repeating-linear-gradient(90deg, #000, #ff0055 50%, #00ff00 100%) !important;
+      color: #ffff00 !important;
+      height: 36px !important;
+      animation: tlnx-anim-text-vibrate 0.1s infinite !important;
+      
+      & .silver-window-title {
+        color: #fffa00 !important;
+        font-family: monospace !important;
+        font-size: 13px !important;
+      }
+      
+      & .silver-btn-grp {
+        & > .silver-btn {
+          background: #ff0000 !important;
+          border-radius: 9px !important;
+          border: 2px solid #000 !important;
+          color: #ffff00 !important;
+          font-size: 13px !important;
+          animation: tlnx-anim-text-vibrate 0.05s infinite alternate !important;
+        }
+      }
+    }
+
+    & input[type="text"], & select, & textarea {
+      border: 2px dashed #00ff00 !important;
+      background: #0d0101 !important;
+      color: #00ff00 !important;
+      font-family: monospace !important;
+    }
+    
+    & button {
+      border: 2px dashed #ff0055 !important;
+      background: #000000 !important;
+      color: #00ff00 !important;
+      font-family: monospace !important;
+      text-transform: uppercase !important;
+      animation: tlnx-anim-text-vibrate 0.08s infinite !important;
+    }
+  }
+}
+
+/* ========================================================================== */
+/* THEME CONFIGURATOR (THEME MANAGER) APP COMPONENT                           */
+/* ========================================================================== */
+.tlnx-theme-manager {
+  padding: 16px !important;
+  background-color: #d4d0c8 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  
+  & .tlnx-theme-header {
+    margin-bottom: 12px !important;
+    border-bottom: 1px solid #808080 !important;
+    padding-bottom: 8px !important;
+    
+    & > h2 {
+      font-size: 13px !important;
+      font-weight: bold !important;
+      color: #000000 !important;
+    }
+    
+    & > p {
+      font-size: 10px !important;
+      color: #404040 !important;
+      margin-top: 4px !important;
+    }
+  }
+
+  & .tlnx-theme-card-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    margin-bottom: 14px !important;
+  }
+
+  & .tlnx-theme-card {
+    background-color: #c0c0c0 !important;
+    border: 2px solid !important;
+    border-color: #ffffff #404040 #404040 #ffffff !important;
+    padding: 12px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    border-radius: 0px !important;
+    transition: all 0.05s ease-in-out !important;
+
+    &.active {
+      border-color: #404040 #ffffff #ffffff #404040 !important;
+      background-color: #dfdfdf !important;
+      box-shadow: inset 1px 1px 3px rgba(0,0,0,0.2) !important;
+    }
+    
+    &:hover {
+      background-color: #e4e0d8 !important;
+    }
+
+    & > .preview-swatch {
+      width: 56px !important;
+      height: 28px !important;
+      border: 1px solid #404040 !important;
+      margin-bottom: 8px !important;
+    }
+
+    & > span {
+      font-size: 10.5px !important;
+      font-weight: bold !important;
+      color: #111111 !important;
+    }
+  }
+
+  & .tlnx-theme-warning {
+    background-color: #fee2e2 !important;
+    border: 1px solid #f87171 !important;
+    padding: 10px !important;
+    margin-bottom: 12px !important;
+    color: #991b1b !important;
+    font-size: 9.5px !important;
+    line-height: 1.4 !important;
+    & > h4 {
+      font-weight: bold !important;
+      margin-bottom: 4px !important;
+      font-size: 10px !important;
+    }
+  }
+
+  & .tlnx-theme-footer-btn {
+    align-self: flex-end !important;
+    margin-top: auto !important;
+    padding: 6px 16px !important;
+    border: 2px solid !important;
+    border-color: #ffffff #404040 #404040 #ffffff !important;
+    background: #c0c0c0 !important;
+    color: #111111 !important;
+    font-weight: bold !important;
+    font-size: 11px !important;
+    cursor: pointer !important;
+    border-radius: 0px !important;
+    outline: none !important;
+
+    &:hover {
+      background: #dfdfdf !important;
+    }
+
+    &:active {
+      border-color: #404040 #ffffff #ffffff #404040 !important;
+      background: #c0c0c0 !important;
+    }
+  }
+}
+

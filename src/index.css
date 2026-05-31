@@ -2,6 +2,14 @@
 @import "tailwindcss";
 @import "./styles/windows.css";
 @import "./styles/apps.css";
+@import "./styles/themes.css";
+
+/* Global defaults overrides */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 @theme {
   --font-sans: "Tahoma", "Verdana", "Segoe UI", sans-serif;

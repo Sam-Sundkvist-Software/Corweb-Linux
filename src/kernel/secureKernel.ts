@@ -145,6 +145,9 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
           if (!resolveNode(vfsRoot, `${deskPath}/matrix_screensaver.mp4`)) {
             writeVFSFile(vfsRoot, `${deskPath}/matrix_screensaver.mp4`, `[VIDEO_MATRIX_MOCK] fps=4;resolution=32x24;color=matrix;title=Matrix Code Screen`);
           }
+          if (!resolveNode(vfsRoot, `${deskPath}/ThemeConfigurator.desktop`)) {
+            writeVFSFile(vfsRoot, `${deskPath}/ThemeConfigurator.desktop`, "Exec=themeManager\nIcon=palette");
+          }
         }
       }
     } catch (e) {
@@ -165,6 +168,18 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
   let kernelPanicState = false;
   let kernelPanicMessage = "";
 
+  // ==========================================
+  // DAEMON VITAL STATE MANAGEMENT
+  // ==========================================
+  let syslogdEnabled = true;
+  let authEnabled = true;
+  let dnsResolverActive = true;
+  let desktopManagerActive = true;
+  let garbageSweeperActive = true;
+  let soundServerActive = true;
+  let simulatedRamWastedKb = 0;
+  let systemInitPid = -1;
+
   const syslogBuffer: string[] = [
     `[${new Date().toISOString()}] Kernel init successful. Encapsulation barriers active.`,
     `[${new Date().toISOString()}] PID hashing salt initialized.`,
@@ -181,6 +196,7 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
   };
 
   const writeSyslog = (msg: string) => {
+    if (!syslogdEnabled) return;
     const timestamp = new Date().toLocaleTimeString();
     const log = `[${timestamp}] ${msg}`;
     syslogBuffer.push(log);
@@ -195,6 +211,10 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
 
   const performLogin = (username: string, passwordHash: string): boolean => {
     if (kernelPanicState) return false;
+    if (!authEnabled) {
+      writeSyslog(`[AUTH] Failed to authenticate on username '${username}' - auth.service is OFFLINE!`);
+      return false;
+    }
     try {
       // Dynamic healing in case file is modified or deleted mid-session
       healFileSystemNode();
@@ -232,6 +252,7 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
     if (kernelPanicState) return;
     kernelPanicState = true;
     kernelPanicMessage = reason;
+    syslogdEnabled = true; // Force-enable log streams for post-mortem dump
     writeSyslog(`[CRITICAL PANIC] ${reason}`);
     saveVFSToDisk(vfsRoot); // Try flush VFS
     panicListeners.forEach((l) => l(reason));
@@ -243,16 +264,21 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
       throw new Error("System execution prohibited: Kernel is in a panicked state.");
     }
     const pid = nextPid++;
-    const procDefOwner = name === "systemBackgroundProcessD" || name === "kernel" || name === "syslogd.service" || name === "journald-logger.service" || name === "memcleanG.service" || name === "xsi-ipc-broker.service"
-      ? "root"
-      : currentLoggedInUser;
+    
+    // Store systemInitPid when systemBackgroundProcessD boots
+    if (name === "systemBackgroundProcessD") {
+      systemInitPid = pid;
+    }
+
+    const isServiceOrSystem = name.endsWith(".service") || name === "systemBackgroundProcessD" || name === "kernel";
+    const procDefOwner = isServiceOrSystem ? "root" : currentLoggedInUser;
 
     const proc: Process = {
       pid,
       name,
       state: isBackground ? ProcessState.SERVICE : ProcessState.RUNNING,
       owner: procDefOwner,
-      memoryUsage: Math.floor(1024 + Math.random() * 4096),
+      memoryUsage: name === "systemBackgroundProcessD" ? (4096 + simulatedRamWastedKb) : Math.floor(1024 + Math.random() * 4096),
       cpuUsage: Math.floor(Math.random() * 5),
       logs: [],
       startTime: Date.now(),
@@ -261,18 +287,108 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
       cwd,
     };
 
+    // Attach onStarted and onStopped hook handlers for vital services
+    if (name === "syslogd.service") {
+      proc.onStarted = () => {
+        syslogdEnabled = true;
+        writeSyslog("[syslogd] Logging daemon initialized. System events are now tracked.");
+      };
+      proc.onStopped = () => {
+        syslogdEnabled = false;
+        // Logs offline notice to be seen after reboot or service restart
+        console.warn("syslogd stopped! System events are now frozen.");
+      };
+    } else if (name === "auth.service") {
+      proc.onStarted = () => {
+        authEnabled = true;
+        writeSyslog("[auth-daemon] Security auth.service active. Session management protocols loaded.");
+      };
+      proc.onStopped = () => {
+        authEnabled = false;
+        writeSyslog("[auth-daemon] [CRITICAL] auth.service terminated! Warning: Authentication subsystem is offline. New login connections will fail.");
+      };
+    } else if (name === "web-dns.service") {
+      proc.onStarted = () => {
+        dnsResolverActive = true;
+        writeSyslog("[web-dns] DNS resolver daemon started on root loopback. Web browsing is online.");
+      };
+      proc.onStopped = () => {
+        dnsResolverActive = false;
+        writeSyslog("[web-dns] [WARNING] web-dns.service offline. Web searches and external page queries will return DNS lookup timeout errors.");
+      };
+    } else if (name === "desktop-manager.service") {
+      proc.onStarted = () => {
+        desktopManagerActive = true;
+        writeSyslog("[desktop-manager] GNOME/KDE theme and panel overlay composite system online.");
+      };
+      proc.onStopped = () => {
+        desktopManagerActive = false;
+        writeSyslog("[desktop-manager] [WARNING] desktop-manager.service was terminated. Composite frame performance degraded.");
+      };
+    } else if (name === "memcleanG.service") {
+      proc.onStarted = () => {
+        garbageSweeperActive = true;
+        writeSyslog("[memcleanG] Garbage cleaner active. Virtual swap buffers monitoring memory space.");
+      };
+      proc.onStopped = () => {
+        garbageSweeperActive = false;
+        writeSyslog("[memcleanG] [CRITICAL] memcleanG.service terminated! Out-of-memory hazard active. RAM leaks will swell memory usage.");
+      };
+    } else if (name === "audio-server.service") {
+      proc.onStarted = () => {
+        soundServerActive = true;
+        writeSyslog("[audio-server] ALSA Audio server active. Audio driver lines mounted.");
+      };
+      proc.onStopped = () => {
+        soundServerActive = false;
+        writeSyslog("[audio-server] [WARNING] ALSA Audio server stopped. Beep syntax and play operations will be silent.");
+      };
+    } else if (name === "xsi-ipc-broker.service") {
+      proc.onStarted = () => {
+        writeSyslog("[xsi-ipc-broker] IPC broker daemon active. Shared locks and dynamic page namespaces mounted.");
+      };
+      proc.onStopped = () => {
+        writeSyslog("[xsi-ipc-broker] [CRITICAL] IPC broker daemon terminated! IPC channels collapsed.");
+      };
+    }
+
     activeProcesses.set(pid, proc);
     writeSyslog(`Process spawned: ${name} (PID: ${pid}, Owner: ${proc.owner}, Cwd: ${cwd || "/"}, Args: ${JSON.stringify(args || [])})`);
+    
+    if (proc.onStarted) {
+      try {
+        proc.onStarted();
+      } catch (err) {
+        console.error(`Error executing onStarted for ${name}:`, err);
+      }
+    }
     return pid;
   };
 
   const killProcess = (pid: number): boolean => {
-    if (pid === 1) {
-      triggerPanic("Kernel Panic: Attempted kill on PID 1 (systemBackgroundProcessD) - core process missing! System halted.");
+    if (pid === systemInitPid) {
+      triggerPanic("Kernel Panic: Attempted kill on system Init Daemon (systemBackgroundProcessD) - core process missing! System halted.");
       return false;
     }
     const proc = activeProcesses.get(pid);
     if (proc) {
+      // Invoke onStopped if defined
+      if (proc.onStopped) {
+        try {
+          proc.onStopped();
+        } catch (err) {
+          console.error(`Error in onStopped for ${proc.name}:`, err);
+        }
+      }
+      
+      // Update its service entry if it's a registered service
+      const svc = services.find(s => s.name === proc.name);
+      if (svc) {
+        svc.status = "inactive";
+        svc.pid = null;
+        svc.logs.push(`[${new Date().toLocaleTimeString()}] Service STOPPED via process termination.`);
+      }
+
       writeSyslog(`Process terminated: ${proc.name} (PID: ${pid})`);
       activeProcesses.delete(pid);
       return true;
@@ -280,18 +396,40 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
     return false;
   };
 
-  const services: DaemonService[] = flavor === "fob" ? [
-    { name: "syslogd.service", description: "System Logging Service", status: "active", pid: 14, logs: ["syslogd started."] }
-  ] : flavor === "xsi" ? [
-    { name: "syslogd.service", description: "System Logging Service", status: "active", pid: 14, logs: ["syslogd started."] },
-    { name: "journald-logger.service", description: "Journal Logging Service", status: "active", pid: 15, logs: ["journald started."] },
-    { name: "memcleanG.service", description: "Memory Garbage Sweep service", status: "active", pid: 16, logs: ["Sweep thread activated."] },
-    { name: "xsi-ipc-broker.service", description: "XSI IPC Broker daemon", status: "active", pid: 17, logs: ["IPC subsystem initialized.", "Semaphores active."] }
-  ] : [
-    { name: "syslogd.service", description: "System Logging Service", status: "active", pid: 14, logs: ["syslogd started."] },
-    { name: "journald-logger.service", description: "Journal Logging Service", status: "active", pid: 15, logs: ["journald started."] },
-    { name: "memcleanG.service", description: "Memory Garbage Sweep service", status: "active", pid: 16, logs: ["Sweep thread activated."] },
-  ];
+  const services: DaemonService[] = [];
+
+  const initializeDefaultServices = () => {
+    const list = flavor === "fob" ? [
+      { name: "syslogd.service", description: "System Logging Service" },
+      { name: "auth.service", description: "User Authentication Daemon" },
+      { name: "web-dns.service", description: "Web Page Domain Name Resolver" }
+    ] : [
+      { name: "syslogd.service", description: "System Logging Service" },
+      { name: "auth.service", description: "User Authentication Daemon" },
+      { name: "web-dns.service", description: "Web Page Domain Name Resolver" },
+      { name: "desktop-manager.service", description: "Desktop Windowing & Theme Manager" },
+      { name: "memcleanG.service", description: "Memory Garbage Sweep service" },
+      { name: "audio-server.service", description: "ALSA Audio server daemon" }
+    ];
+
+    if (flavor === "xsi") {
+      list.push({ name: "xsi-ipc-broker.service", description: "XSI IPC Broker daemon" });
+    }
+
+    for (const item of list) {
+      const pid = bootProcess(item.name, true);
+      services.push({
+        name: item.name,
+        description: item.description,
+        status: "active",
+        pid,
+        logs: [`[${new Date().toLocaleTimeString()}] Service spawned during kernel bootstrap with PID ${pid}.`]
+      });
+    }
+  };
+
+  // Perform active default service initiation sequence
+  initializeDefaultServices();
 
   // Fluctuating process cpu/memory usage over time
   setInterval(() => {
@@ -314,13 +452,34 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
       // ignore parsing errors in periodic ticker
     }
 
+    // Memory growth simulation when memcleanG (garbage sweep) is dead
+    if (!garbageSweeperActive) {
+      simulatedRamWastedKb += Math.floor(Math.random() * 12000 + 6000); // leak ~6MB to ~18MB every 3s
+      
+      // If leak memory exceeds 180MB, trigger kernel panic! (180,000 KB)
+      if (simulatedRamWastedKb > 180000) {
+        triggerPanic("Kernel Panic: Out of memory (OOM killer failed to reclaim swap space). Service systemd.memcleanG is offline!");
+        return;
+      }
+    } else {
+      // Sweeper is running! Reclaim excess memory slowly
+      if (simulatedRamWastedKb > 0) {
+        simulatedRamWastedKb = Math.max(0, simulatedRamWastedKb - 25000); // clear 25MB on each tick
+      }
+    }
+
     activeProcesses.forEach((proc) => {
       if (proc.state === ProcessState.SUSPENDED) {
         proc.cpuUsage = 0;
         return;
       }
       proc.cpuUsage = isNaN(proc.cpuUsage) ? 0 : Math.max(0, Math.min(100, proc.cpuUsage + Math.floor((Math.random() * 5 - 2) * cpuScale)));
-      proc.memoryUsage = Math.max(256, proc.memoryUsage + Math.floor(Math.random() * 100 - 45));
+      
+      if (proc.name === "systemBackgroundProcessD") {
+        proc.memoryUsage = 4096 + simulatedRamWastedKb;
+      } else {
+        proc.memoryUsage = Math.max(256, proc.memoryUsage + Math.floor(Math.random() * 100 - 45));
+      }
     });
   }, 3000);
 
@@ -747,6 +906,9 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
       },
 
       getLogs: () => {
+        if (!syslogdEnabled) {
+          return ["--- [CRITICAL WARNING: syslogd.service is offline. Syslog buffer is frozen] ---"];
+        }
         return [...syslogBuffer];
       },
     };
@@ -759,7 +921,12 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
     getKernelVFS: () => JSON.parse(JSON.stringify(vfsRoot)),
     getSyscallToken,
     writeSyslog,
-    getSyslogs: () => [...syslogBuffer],
+    getSyslogs: () => {
+      if (!syslogdEnabled) {
+        return ["--- [CRITICAL WARNING: syslogd.service is offline. Syslog buffer is frozen] ---"];
+      }
+      return [...syslogBuffer];
+    },
     registerVFSListener: (listener: (root: VFSNode) => void) => {
       vfsListeners.add(listener);
       return () => {

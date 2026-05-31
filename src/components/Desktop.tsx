@@ -12,11 +12,11 @@ import FileManagerApp from "./apps/FileManagerApp";
 import MinesweeperApp from "./apps/MinesweeperApp";
 import SurferApp from "./apps/SurferApp";
 import SystemSettingsApp from "./apps/SystemSettingsApp";
-import SystemFlagEditorApp from "./apps/SystemFlagEditorApp";
 import ImageViewerApp from "./apps/ImageViewerApp";
 import VideoPlayerApp from "./apps/VideoPlayerApp";
 import MusicPlayerApp from "./apps/MusicPlayerApp";
-import SystemDialogs from "./SystemDialogs";
+import DialogApp from "./apps/DialogApp";
+import { ThemeManager } from "./apps/ThemeManager";
 
 // Boot Screens imports
 import { DetailedBootScreen, GdmLoginScreen, KernelPanicScreen } from "./BootScreens";
@@ -43,7 +43,8 @@ import {
   Activity,
   Image as ImageIcon,
   Video,
-  Music
+  Music,
+  Palette
 } from "lucide-react";
 
 export default function Desktop() {
@@ -149,8 +150,10 @@ export default function Desktop() {
 
   // Resolve custom wallpapers from system VFS options in settings
   const liveSettingsObj = os.kernel ? os.kernel?.getSyscallToken(1).getSettings() : {};
-  const wallpaperCol1 = liveSettingsObj?.custom_wallpaper_color_1 || "#1b1e20";
-  const wallpaperCol2 = liveSettingsObj?.custom_wallpaper_color_2 || "#2d3235";
+  const currentServicesList = os.kernel ? os.kernel?.getSyscallToken(1).getServices() : [];
+  const isDesktopManagerActive = currentServicesList.find(s => s.name === "desktop-manager.service")?.status !== "inactive";
+  const wallpaperCol1 = isDesktopManagerActive ? (liveSettingsObj?.custom_wallpaper_color_1 || "#1b1e20") : "#0a0a0a";
+  const wallpaperCol2 = isDesktopManagerActive ? (liveSettingsObj?.custom_wallpaper_color_2 || "#2d3235") : "#0a0a0a";
 
   // Double click handler for desktop items
   const handleDesktopShortcutDoubleClick = (name: string, type: NodeType) => {
@@ -173,6 +176,8 @@ export default function Desktop() {
           os.launchApp("minesweeperUF", "Minesweeper Retro");
         } else if (name.includes("Leafpad")) {
           os.launchApp("leafpadUF", "Leafpad (Text Editor)");
+        } else if (name.includes("Theme")) {
+          os.launchApp("themeManagerUF", "Theme Configurator", { width: 520, height: 420 });
         }
       }
     }
@@ -193,8 +198,31 @@ export default function Desktop() {
     }
   };
 
+  // Broken or glitched theme dynamic status updates and lag intervals
+  const [glitchTicker, setGlitchTicker] = useState(0);
+  useEffect(() => {
+    if (liveSettingsObj?.current_desktop_theme !== "Broken") return;
+    const interval = setInterval(() => {
+      setGlitchTicker((t) => t + 1);
+    }, 450);
+    return () => clearInterval(interval);
+  }, [liveSettingsObj?.current_desktop_theme]);
+
+  useEffect(() => {
+    if (liveSettingsObj?.current_desktop_theme !== "Broken") return;
+    const lagInterval = setInterval(() => {
+      const start = Date.now();
+      while (Date.now() - start < 150) {
+        // Blocks single-threaded loop execution for 150ms to create genuine system-wide input stagger and lag
+      }
+    }, 1200);
+    return () => clearInterval(lagInterval);
+  }, [liveSettingsObj?.current_desktop_theme]);
+
+  const currentThemeClassName = `tlnx-theme-${String(liveSettingsObj?.current_desktop_theme || "Classic Blue").toLowerCase().replace(/\s+/g, "-")}`;
+
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden relative select-none bg-[#1a1e20] font-sans text-xs">
+    <div className={`w-screen h-screen flex flex-col overflow-hidden relative select-none bg-[#1a1e20] font-sans text-xs ${currentThemeClassName}`}>
       
       {/* Immersive UI Wallpaper Gradient configured in Control Panel */}
       <div
@@ -238,79 +266,90 @@ export default function Desktop() {
               <div className="absolute top-[22px] left-0 w-52 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-xl divide-y divide-[#808080]/30 z-50 text-[10.5px]">
                 <button
                   onClick={() => {
-                    os.launchApp("terminalUF", "Console Terminal (sh)");
+                    os.launchApp("terminalUF", "Command Terminal", { width: 680, height: 460 });
                     setAppsMenuOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
                 >
                   <TermIcon className="w-3.5 h-3.5 text-slate-800 hover:text-white" />
-                  <span className="font-bold">sh terminal console</span>
+                  <span className="font-bold">Command Terminal</span>
                 </button>
 
                 <button
                   onClick={() => {
-                    os.launchApp("fileManagerUF", "VFS Node Explorer");
+                    os.launchApp("fileManagerUF", "File Explorer");
                     setAppsMenuOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
                 >
                   <FolderOpen className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">vfs file explorer</span>
+                  <span className="font-bold">File Explorer</span>
                 </button>
 
                 <button
                   onClick={() => {
-                    os.launchApp("leafpadUF", "Leafpad text editor");
+                    os.launchApp("leafpadUF", "Text Editor");
                     setAppsMenuOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
                 >
                   <FileText className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">leafpad code text</span>
+                  <span className="font-bold">Text Editor</span>
                 </button>
 
                 <button
                   onClick={() => {
-                    os.launchApp("systemMonitorUFD", "Kernel Thread Monitor");
+                    os.launchApp("systemMonitorUFD", "System Monitor");
                     setAppsMenuOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
                 >
                   <Cpu className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">proc system monitor</span>
+                  <span className="font-bold">System Monitor</span>
                 </button>
 
                 <button
                   onClick={() => {
-                    os.launchApp("minesweeperUF", "Minesweeper Retro");
+                    os.launchApp("minesweeperUF", "Minesweeper Game");
                     setAppsMenuOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
                 >
                   <Gamepad2 className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">retro minesweeper</span>
+                  <span className="font-bold">Minesweeper Game</span>
                 </button>
 
                 <button
                   onClick={() => {
-                    os.launchApp("surferUF", "Surfer HTML browser");
+                    os.launchApp("surferUF", "Web Browser");
                     setAppsMenuOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
                 >
                   <Globe2 className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">surfer web proxy</span>
+                  <span className="font-bold">Web Browser</span>
                 </button>
 
                 <button
                   onClick={() => {
-                    os.launchApp("controlPanelUFD", "Systemctl Rules Panel", { width: 780, height: 500 });
+                    os.launchApp("controlPanelUFD", "System Settings", { width: 780, height: 500 });
                     setAppsMenuOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
                 >
                   <SettingsIcon className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-black">[systemctl rules]</span>
+                  <span className="font-bold">System Settings</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    os.launchApp("themeManagerUF", "Theme Configurator", { width: 520, height: 420 });
+                    setAppsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
+                >
+                  <Palette className="w-3.5 h-3.5 text-slate-800" />
+                  <span className="font-bold">Theme Configurator</span>
                 </button>
 
                 <button
@@ -321,7 +360,7 @@ export default function Desktop() {
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/30"
                 >
                   <ImageIcon className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">image viewer loader</span>
+                  <span className="font-bold">Image Viewer</span>
                 </button>
 
                 <button
@@ -332,7 +371,7 @@ export default function Desktop() {
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/30"
                 >
                   <Video className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">video downscaler player</span>
+                  <span className="font-bold">Video Player</span>
                 </button>
 
                 <button
@@ -343,18 +382,7 @@ export default function Desktop() {
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/30"
                 >
                   <Music className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">music chiptune synthesizer</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("systemFlagEditorUFD", "systemFlagEditorUFD - Flag Editor Daemon");
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/40"
-                >
-                  <Activity className="w-3.5 h-3.5 text-red-800" />
-                  <span className="font-extrabold text-[#730500]">[flag editor daemon]</span>
+                  <span className="font-bold">Music Player</span>
                 </button>
               </div>
             )}
@@ -438,13 +466,13 @@ export default function Desktop() {
               <div className="absolute top-[22px] left-0 w-48 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-xl divide-y divide-[#808080]/30 z-50 text-[10.5px]">
                 <button
                   onClick={() => {
-                    os.launchApp("controlPanelUFD", "Systemctl Rules Panel", { width: 780, height: 500 });
+                    os.launchApp("controlPanelUFD", "System Settings", { width: 780, height: 500 });
                     setSystemMenuOpen(false);
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold flex items-center space-x-2 text-black"
                 >
                   <SettingsIcon className="w-3.5 h-3.5" />
-                  <span>preferences center</span>
+                  <span>System Settings</span>
                 </button>
 
                 <button
@@ -455,7 +483,7 @@ export default function Desktop() {
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold flex items-center space-x-2 text-black"
                 >
                   <Info className="w-3.5 h-3.5" />
-                  <span>about trashlinux</span>
+                  <span>About System</span>
                 </button>
 
                 <button
@@ -466,7 +494,7 @@ export default function Desktop() {
                   className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold flex items-center space-x-2 text-red-800"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  <span>logout session</span>
+                  <span>Log Out</span>
                 </button>
 
                 <button
@@ -477,7 +505,7 @@ export default function Desktop() {
                   className="w-full text-left px-3 py-2 hover:bg-red-800 hover:text-white text-red-700 font-bold flex items-center space-x-2"
                 >
                   <Clock className="w-3.5 h-3.5" />
-                  <span>cold reset loop</span>
+                  <span>Restart System</span>
                 </button>
               </div>
             )}
@@ -523,6 +551,29 @@ export default function Desktop() {
         className="flex-1 w-full relative z-10 p-4"
         onClick={handleWallpaperClick}
       >
+        {!isDesktopManagerActive ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 font-mono text-center p-6 select-none z-30">
+            <div className="border-2 border-red-500 bg-red-950/40 p-5 max-w-md shadow-2xl animate-pulse text-red-500 rounded-none">
+              <span className="text-2xl font-black block mb-2 font-mono">⚠️ DESKTOP COMPOSITOR PANIC ⚠️</span>
+              <p className="text-[11px] leading-5 text-gray-300 font-mono">
+                The <code className="text-red-400 font-bold">desktop-manager.service</code> background daemon was terminated or failed to start. Theme composites and wallpaper elements are frozen.
+              </p>
+              <div className="mt-5 flex space-x-2.5 justify-center">
+                <button
+                  onClick={() => {
+                    if (os.kernel) {
+                      os.kernel.getSyscallToken(1).controlService("desktop-manager.service", "start");
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white font-bold border-2 border-t-red-400 border-l-red-400 border-r-red-900 border-b-red-900 text-xs uppercase hover:bg-red-700 cursor-pointer"
+                >
+                  systemctl start desktop-manager
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {/* DESKTOP INTEGRATED VFS SHORTCUT ICONS */}
         <div className="absolute top-10 left-10 flex flex-col space-y-4 items-center select-none z-10 w-24">
           
@@ -579,15 +630,15 @@ export default function Desktop() {
         {/* ACTIVE WINDOW VIEWER STACKING PANEL */}
         {os.windows.map((win) => {
           const syscall = syscallsCacheRef.current[win.id] || (os.kernel ? os.kernel.getSyscallToken(99) : null);
-          const activeDialog = os.dialogs.find((d) => d.ownerWindowId === win.id);
+          const childDialogWin = os.windows.find((w) => w.appId === "dialogUF" && w.parentWindowId === win.id);
 
           return (
             <WindowFrame
               key={win.id}
               win={win}
               isActive={os.activeWindowId === win.id}
-              isDisabled={!!activeDialog}
-              activeDialog={activeDialog}
+              isDisabled={!!childDialogWin}
+              activeDialog={childDialogWin?.dialogData}
               onCloseDialog={os.closeDialog}
               onClose={os.closeWindow}
               onMinimize={os.minimizeWindow}
@@ -596,6 +647,12 @@ export default function Desktop() {
               onMove={os.updateWindowPosition}
               onResize={os.updateWindowSize}
             >
+               {win.appId === "dialogUF" && win.dialogData && (
+                 <DialogApp
+                   diag={win.dialogData}
+                   onClose={(id, res) => os.closeDialog(win.id, res)}
+                 />
+               )}
                {win.appId === "terminalUF" && (
                 <TerminalApp
                   syscall={syscall}
@@ -613,6 +670,18 @@ export default function Desktop() {
               {win.appId === "systemMonitorUFD" && (
                 <SystemMonitorApp syscall={syscall} />
               )}
+              {win.appId === "themeManagerUF" && (
+                <div
+                  ref={(node) => {
+                    if (node) {
+                      node.innerHTML = "";
+                      const { element } = ThemeManager(syscall);
+                      node.appendChild(element);
+                    }
+                  }}
+                  className="w-full h-full bg-[#d4d0c8]"
+                />
+              )}
               {win.appId === "fileManagerUF" && (
                 <FileManagerApp
                   syscall={syscall}
@@ -624,7 +693,7 @@ export default function Desktop() {
               {win.appId === "minesweeperUF" && <MinesweeperApp />}
               {win.appId === "surferUF" && <SurferApp syscall={syscall} />}
               {win.appId === "controlPanelUFD" && <SystemSettingsApp syscall={syscall} />}
-              {win.appId === "systemFlagEditorUFD" && <SystemFlagEditorApp syscall={syscall} />}
+              {win.appId === "systemFlagEditorUFD" && <SystemSettingsApp syscall={syscall} />}
               {win.appId === "imageViewerUF" && (
                 <ImageViewerApp
                   syscall={syscall}
@@ -680,9 +749,6 @@ export default function Desktop() {
             </div>
           </div>
         )}
-
-        {/* GLOBAL SYSTEM-WIDE DIALOG MODALS LAYER */}
-        <SystemDialogs dialogs={os.dialogs} onCloseDialog={os.closeDialog} />
       </div>
 
       {/* BOTTOM TASKS TRAY PANEL BAR */}
@@ -701,7 +767,7 @@ export default function Desktop() {
 
           {/* Tray loaded processes links */}
           <div className="flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-            {os.windows.map((w) => {
+            {os.windows.filter(w => w.appId !== "dialogUF").map((w) => {
               const isActive = os.activeWindowId === w.id && !w.isMinimized;
               return (
                 <button
@@ -747,6 +813,21 @@ export default function Desktop() {
           </div>
         </div>
       </div>
+
+      {liveSettingsObj?.current_desktop_theme === "Broken" && (
+        <>
+          <div className="absolute top-[10%] left-[25%] p-4 z-40 bg-black text-[#02ff05] font-mono select-none pointer-events-none text-[9px] border border-red-500 max-w-xs uppercase leading-3" style={{ animation: "tlnx-anim-artifact-flash 1s infinite alternate" }}>
+            [FATAL INSTABILITY LEVEL 9]<br/>
+            Core segment registers: corrupted<br/>
+            PHYSICAL ADDR REF: 0xDEADBEEF<br/>
+            THREAD INDEX LOCKED: OS PANIC INBOUND
+          </div>
+          <div className="absolute bottom-[20%] right-[15%] p-2 z-40 bg-[#250101] text-yellow-300 font-mono select-none pointer-events-none text-xs border-2 border-yellow-500 rounded flex items-center space-x-1" style={{ animation: "tlnx-anim-screen-vibrate 0.1s infinite alternate" }}>
+            <span>⚠️ CRITICAL CORE FLUX STUTTER</span>
+          </div>
+          <div className="absolute top-[40%] right-[35%] w-32 h-16 bg-gradient-to-tr from-purple-900 to-green-950 opacity-40 z-30 pointer-events-none border border-green-500" style={{ animation: "tlnx-anim-screen-vibrate 0.3s infinite" }} />
+        </>
+      )}
     </div>
   );
 }

@@ -5,1169 +5,837 @@ import {
   Settings as SettingsIcon, 
   Trash2, 
   UserPlus, 
-  Network, 
-  Volume2, 
-  ShieldAlert, 
-  FolderLock, 
-  Flame, 
-  Cpu, 
-  Palette, 
   Save, 
   RefreshCw,
-  HardDrive,
-  Monitor,
-  Sliders
+  Plus,
+  ShieldCheck,
+  Flame,
+  Check,
+  X
 } from "lucide-react";
 
 interface SystemSettingsAppProps {
   syscall: SystemCallInterface;
 }
 
+const PREDEFINED_SETTINGS = [
+  {
+    key: "hostname",
+    name: "System Hostname",
+    description: "The unique identifier representing this virtual computer on diagnostic checks and prompt labels.",
+    defaultType: "string"
+  },
+  {
+    key: "networking_enabled",
+    name: "In-Browser Network Connection",
+    description: "Permits the Surfer web browser to route traffic. If toggled off, loading external resources will block.",
+    defaultType: "boolean"
+  },
+  {
+    key: "system_sound",
+    name: "Audio Playback & Warnings",
+    description: "Drives real-time audio playback, auditory clicks, and warning cues.",
+    defaultType: "boolean"
+  },
+  {
+    key: "syslog_verbosity",
+    name: "System Logging Level",
+    description: "Granularity level of logged operations visible in backend logs (INFO, DEBUG, WARN, ERROR).",
+    defaultType: "string"
+  },
+  {
+    key: "allow_regular_user_system_writes",
+    name: "Standard Write Privileges",
+    description: "Allows non-admin users to directly modify nodes inside system directories.",
+    defaultType: "boolean"
+  },
+  {
+    key: "restrict_process_kill",
+    name: "Daemon Thread Protection",
+    description: "Bypasses standard termination signals for critical system-owned processes.",
+    defaultType: "boolean"
+  },
+  {
+    key: "allow_guest_terminal",
+    name: "Guest Terminal Shell",
+    description: "Allows unauthenticated guests of the terminal program to execute shell processes.",
+    defaultType: "boolean"
+  },
+  {
+    key: "simulated_cpu_threads",
+    name: "Simulated Processor Threads",
+    description: "Number of logical parallel processes allocated to handle periodic file audits.",
+    defaultType: "number"
+  },
+  {
+    key: "kernel_panic_on_missing_sysconfig",
+    name: "Critical Panic on Missing Configs",
+    description: "Priggers a blue-screen kernel panic if the primary OS config file goes missing.",
+    defaultType: "boolean"
+  },
+  {
+    key: "custom_wallpaper_color_1",
+    name: "Desktop Background Primary Hue",
+    description: "Hex code representing the starting color of the desktop's backing linear gradient.",
+    defaultType: "string"
+  },
+  {
+    key: "custom_wallpaper_color_2",
+    name: "Desktop Background Secondary Hue",
+    description: "Hex code representing the finishing color of the desktop's backing linear gradient.",
+    defaultType: "string"
+  },
+  {
+    key: "virtual_memory_enabled",
+    name: "Virtual RAM Allocation (Swap)",
+    description: "Offloads inactive modules to the storage disk when system memory constraints arise.",
+    defaultType: "boolean"
+  },
+  {
+    key: "swap_file_size",
+    name: "Swap Disk Size (MB)",
+    description: "The volume size on the filesystem allocated purely for virtual paging sectors.",
+    defaultType: "number"
+  },
+  {
+    key: "swappiness_factor",
+    name: "Memory Swappiness bias",
+    description: "Controls how aggressively the kernel switches volatile pages to storage drives (0-100).",
+    defaultType: "number"
+  },
+  {
+    key: "ram_size_allocated",
+    name: "Base Assigned Memory (MB)",
+    description: "Represents the primary operational volatile memory allotted to active programs.",
+    defaultType: "number"
+  },
+  {
+    key: "cache_eviction_policy",
+    name: "File Cache Eviction Technique",
+    description: "Algorithmic rules determines how old files are cleaned from active memory. (LRU, MRU, FIFO)",
+    defaultType: "string"
+  },
+  {
+    key: "current_desktop_theme",
+    name: "Visual Theme Preset",
+    description: "Skins general system applications (e.g. Classic Blue, Clean Light, Charcoal Slate).",
+    defaultType: "string"
+  },
+  {
+    key: "font_preset",
+    name: "Default Font Families",
+    description: "Typography fonts loaded to render program title bars, menus, and system readouts.",
+    defaultType: "string"
+  },
+  {
+    key: "window_bevel_style",
+    name: "Window Frame Edge Styling",
+    description: "Decorates borders of standard computer programs. (classic_bevel, flat_minimal)",
+    defaultType: "string"
+  },
+  {
+    key: "pointer_cursor_enforcement",
+    name: "Enforce Standard Pointer",
+    description: "Enforces default graphic shapes for cursors globally across all interfaces.",
+    defaultType: "boolean"
+  },
+  {
+    key: "show_desktop_grid",
+    name: "Shortcut Alignment Grid",
+    description: "Snaps workspace shortcut icons neatly to predefined background grid points.",
+    defaultType: "boolean"
+  },
+  {
+    key: "daemon_flag_editor_enabled",
+    name: "Configuration Integrity Daemon",
+    description: "Ensures /etc/sysconfig.json files stay secure via active folder checks.",
+    defaultType: "boolean"
+  },
+  {
+    key: "daemon_file_crawler_enabled",
+    name: "Active Indexing Crawler",
+    description: "Crawls folders as files change to deliver instant, indexed searches.",
+    defaultType: "boolean"
+  },
+  {
+    key: "daemon_cron_scheduler_enabled",
+    name: "Automated Task Scheduler",
+    description: "Periodically executes scheduled command lines under background daemons.",
+    defaultType: "boolean"
+  },
+  {
+    key: "daemon_audio_synth_enabled",
+    name: "Audio Synthesizer Broker",
+    description: "Orchestrates background sound cards and manages real-time buffer streaming.",
+    defaultType: "boolean"
+  },
+  {
+    key: "boot_log_verbose",
+    name: "Verbose Diagnostic Boot Logs",
+    description: "Priggers the loader to display extra device addresses when starting up.",
+    defaultType: "boolean"
+  },
+  {
+    key: "shutdown_grace_seconds",
+    name: "Shutdown Termination Buffers",
+    description: "Seconds buffer to shut down processes safely before forcing task termination.",
+    defaultType: "number"
+  }
+];
+
 export default function SystemSettingsApp({ syscall }: SystemSettingsAppProps) {
-  const [activeTab, setActiveTab] = useState<"users" | "policies" | "hardware" | "virtual_memory" | "aesthetics" | "daemons">("users");
+  const [activeTab, setActiveTab] = useState<"settings" | "users">("settings");
   
-  // Configuration State
-  const [settings, setSettings] = useState<any>({});
+  // Settings representation
+  const [settings, setSettings] = useState<Record<string, any>>({});
   const [userList, setUserList] = useState<any[]>([]);
 
-  // Form states for creating a user
-  const [newUsername, setNewUsername] = useState("");
-  const [newFullName, setNewFullName] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+  // User creation fields
+  const [newUname, setNewUname] = useState("");
+  const [newFName, setNewFName] = useState("");
+  const [newPass, setNewPass] = useState("");
   const [newRole, setNewRole] = useState("user");
-  const [newAvatar, setNewAvatar] = useState("penguin");
+  const [newAvatar, setNewAvatar] = useState("user");
 
-  // Local settings fields
-  const [hostname, setHostname] = useState("");
-  const [networkingEnabled, setNetworkingEnabled] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [syslogVerbosity, setSyslogVerbosity] = useState("INFO");
-  const [allowSystemWrites, setAllowSystemWrites] = useState(false);
-  const [restrictProcessKill, setRestrictProcessKill] = useState(true);
-  const [allowGuestTerminal, setAllowGuestTerminal] = useState(true);
-  const [cpuThreads, setCpuThreads] = useState(4);
-  const [panicOnMissingConfig, setPanicOnMissingConfig] = useState(true);
-  const [wallpaperColor1, setWallpaperColor1] = useState("#2b5c8f");
-  const [wallpaperColor2, setWallpaperColor2] = useState("#5086c1");
-  const [restrictedPathsText, setRestrictedPathsText] = useState("");
+  // Custom setting row creation
+  const [customKey, setCustomKey] = useState("");
+  const [customType, setCustomType] = useState<"string" | "boolean" | "number" | "array">("string");
+  const [customVal, setCustomVal] = useState("");
 
-  // Virtual Memory & Swap Config States
-  const [virtualMemoryEnabled, setVirtualMemoryEnabled] = useState(true);
-  const [swapFileSize, setSwapFileSize] = useState(2048);
-  const [swappinessFactor, setSwappinessFactor] = useState(60);
-  const [ramSizeAllocated, setRamSizeAllocated] = useState(4096);
-  const [cacheEvictionPolicy, setCacheEvictionPolicy] = useState("LRU");
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Design & Aesthetics Config States
-  const [currentDesktopTheme, setCurrentDesktopTheme] = useState("Classic Blue");
-  const [fontPreset, setFontPreset] = useState("Tahoma & Verdana");
-  const [windowBevelStyle, setWindowBevelStyle] = useState("classic_bevel");
-  const [pointerCursorEnforcement, setPointerCursorEnforcement] = useState(true);
-  const [showDesktopGrid, setShowDesktopGrid] = useState(true);
+  // Determine permissions based on current authenticated actor
+  const currentUser = syscall.getCurrentUser();
+  const userRole = syscall.getCurrentUserRole();
+  const isReadOnly = userRole !== "admin" && currentUser !== "root" && currentUser !== "tux";
 
-  // Daemons & Services Config States
-  const [daemonFlagEditor, setDaemonFlagEditor] = useState(true);
-  const [daemonFileCrawler, setDaemonFileCrawler] = useState(true);
-  const [daemonCronScheduler, setDaemonCronScheduler] = useState(false);
-  const [daemonAudioSynth, setDaemonAudioSynth] = useState(true);
-  const [bootLogVerbose, setBootLogVerbose] = useState(false);
-  const [shutdownGraceSeconds, setShutdownGraceSeconds] = useState(5);
-
-  const [statusMsg, setStatusMsg] = useState("");
-  const [statusType, setStatusType] = useState<"success" | "error" | "">("");
-
-  // Load configuration from Kernel VFS
-  const reloadConfig = () => {
+  const reloadAll = () => {
     try {
-      const liveSettings = syscall.getSettings();
+      const liveSettings = syscall.getSettings() || {};
       setSettings(liveSettings);
-      
-      setHostname(liveSettings.hostname || "tux-dapper-2006");
-      setNetworkingEnabled(liveSettings.networking_enabled !== false);
-      setSoundEnabled(liveSettings.system_sound !== false);
-      setSyslogVerbosity(liveSettings.syslog_verbosity || "INFO");
-      setAllowSystemWrites(liveSettings.allow_regular_user_system_writes === true);
-      setRestrictProcessKill(liveSettings.restrict_process_kill !== false);
-      setAllowGuestTerminal(liveSettings.allow_guest_terminal !== false);
-      setCpuThreads(liveSettings.simulated_cpu_threads || 4);
-      setPanicOnMissingConfig(liveSettings.kernel_panic_on_missing_sysconfig !== false);
-      setWallpaperColor1(liveSettings.custom_wallpaper_color_1 || "#2b5c8f");
-      setWallpaperColor2(liveSettings.custom_wallpaper_color_2 || "#5086c1");
-      setRestrictedPathsText(Array.isArray(liveSettings.restricted_paths) ? liveSettings.restricted_paths.join(", ") : "");
 
-      // Virtual Memory & Swap Config Loads
-      setVirtualMemoryEnabled(liveSettings.virtual_memory_enabled !== false);
-      setSwapFileSize(liveSettings.swap_file_size || 2048);
-      setSwappinessFactor(liveSettings.swappiness_factor || 60);
-      setRamSizeAllocated(liveSettings.ram_size_allocated || 4096);
-      setCacheEvictionPolicy(liveSettings.cache_eviction_policy || "LRU");
-
-      // Design & Aesthetics Config Loads
-      setCurrentDesktopTheme(liveSettings.current_desktop_theme || "Classic Blue");
-      setFontPreset(liveSettings.font_preset || "Tahoma & Verdana");
-      setWindowBevelStyle(liveSettings.window_bevel_style || "classic_bevel");
-      setPointerCursorEnforcement(liveSettings.pointer_cursor_enforcement !== false);
-      setShowDesktopGrid(liveSettings.show_desktop_grid !== false);
-
-      // Daemons & Services Config Loads
-      setDaemonFlagEditor(liveSettings.daemon_flag_editor_enabled !== false);
-      setDaemonFileCrawler(liveSettings.daemon_file_crawler_enabled !== false);
-      setDaemonCronScheduler(liveSettings.daemon_cron_scheduler_enabled === true);
-      setDaemonAudioSynth(liveSettings.daemon_audio_synth_enabled !== false);
-      setBootLogVerbose(liveSettings.boot_log_verbose === true);
-      setShutdownGraceSeconds(liveSettings.shutdown_grace_seconds || 5);
-
-      const users = syscall.getUsers();
+      const users = syscall.getUsers() || [];
       setUserList(users);
+      setMessage(null);
     } catch (e: any) {
-      console.error("Failed to read settings from filesystem", e);
+      console.error("System Settings initialization error:", e);
     }
   };
 
   useEffect(() => {
-    reloadConfig();
+    reloadAll();
   }, []);
 
-  const showStatus = (msg: string, type: "success" | "error") => {
-    if (syscall.openDialog) {
-      syscall.openDialog(
-        type === "success" ? "Success Notification" : "System Notification",
-        msg,
-        type === "success" ? "info" : "error"
-      );
-    } else {
-      setStatusMsg(msg);
-      setStatusType(type);
-      setTimeout(() => {
-        setStatusMsg("");
-        setStatusType("");
-      }, 4000);
-    }
+  const triggerToast = (text: string, type: "success" | "error" = "success") => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage(null), 4000);
   };
 
-  // Save modified config back to filesystem
-  const handleSaveConfig = () => {
-    const rPaths = restrictedPathsText
-      .split(",")
-      .map((p) => p.trim())
-      .filter((p) => p !== "");
+  const handleUpdateSetting = (key: string, value: any) => {
+    if (isReadOnly) {
+      triggerToast("Permission denied. Guest users are not authorized to save settings.", "error");
+      return;
+    }
 
     const updated = {
       ...settings,
-      hostname,
-      networking_enabled: networkingEnabled,
-      system_sound: soundEnabled,
-      syslog_verbosity: syslogVerbosity,
-      allow_regular_user_system_writes: allowSystemWrites,
-      restrict_process_kill: restrictProcessKill,
-      allow_guest_terminal: allowGuestTerminal,
-      simulated_cpu_threads: Number(cpuThreads),
-      kernel_panic_on_missing_sysconfig: panicOnMissingConfig,
-      custom_wallpaper_color_1: wallpaperColor1,
-      custom_wallpaper_color_2: wallpaperColor2,
-      restricted_paths: rPaths,
-
-      // New properties to commit
-      virtual_memory_enabled: virtualMemoryEnabled,
-      swap_file_size: Number(swapFileSize),
-      swappiness_factor: Number(swappinessFactor),
-      ram_size_allocated: Number(ramSizeAllocated),
-      cache_eviction_policy: cacheEvictionPolicy,
-
-      current_desktop_theme: currentDesktopTheme,
-      font_preset: fontPreset,
-      window_bevel_style: windowBevelStyle,
-      pointer_cursor_enforcement: pointerCursorEnforcement,
-      show_desktop_grid: showDesktopGrid,
-
-      daemon_flag_editor_enabled: daemonFlagEditor,
-      daemon_file_crawler_enabled: daemonFileCrawler,
-      daemon_cron_scheduler_enabled: daemonCronScheduler,
-      daemon_audio_synth_enabled: daemonAudioSynth,
-      boot_log_verbose: bootLogVerbose,
-      shutdown_grace_seconds: Number(shutdownGraceSeconds),
+      [key]: value
     };
 
     const success = syscall.saveSettings(updated);
     if (success) {
-      if (syscall.openDialog) {
-        syscall.openDialog("Success", "Settings successfully stored to `/etc/sysconfig.json`", "info");
-      } else {
-        showStatus("Settings successfully stored to `/etc/sysconfig.json`", "success");
-      }
-      reloadConfig();
+      setSettings(updated);
+      triggerToast(`Successfully modified system configuration: ${key}.`);
     } else {
-      showStatus("Write Permission Denied. Restructured governance requires Admin/Root user status.", "error");
+      triggerToast("Failed to write to VFS. Lacking admin authorization privileges.", "error");
     }
   };
 
-  // Add a brand new user account
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleTypeChange = (key: string, targetType: string) => {
+    if (isReadOnly) {
+      triggerToast("Permission denied. Changing data types is restricted.", "error");
+      return;
+    }
+
+    const val = settings[key];
+    let converted: any = val;
+
+    if (targetType === "boolean") {
+      converted = val === "true" || val === true || String(val).toLowerCase() === "true" || Number(val) === 1;
+    } else if (targetType === "number") {
+      const p = Number(val);
+      converted = isNaN(p) ? 0 : p;
+    } else if (targetType === "string") {
+      converted = String(val);
+    } else if (targetType === "array") {
+      if (Array.isArray(val)) {
+        converted = val;
+      } else {
+        converted = typeof val === "string" ? val.split(",").map(item => item.trim()).filter(Boolean) : [val];
+      }
+    }
+
+    handleUpdateSetting(key, converted);
+  };
+
+  const handleAddCustomSetting = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUsername.trim() || !newFullName.trim()) {
-      showStatus("All credential fields are required.", "error");
+    if (!customKey.trim()) {
+      triggerToast("Setting key name cannot be left blank.", "error");
+      return;
+    }
+
+    const key = customKey.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    
+    if (settings[key] !== undefined) {
+      triggerToast(`Setting key "${key}" already exists.`, "error");
+      return;
+    }
+
+    let val: any = customVal.trim();
+    if (customType === "boolean") {
+      val = customVal.toLowerCase() === "true" || customVal === "1";
+    } else if (customType === "number") {
+      val = isNaN(Number(customVal)) ? 0 : Number(customVal);
+    } else if (customType === "array") {
+      val = customVal.split(",").map(s => s.trim()).filter(Boolean);
+    }
+
+    handleUpdateSetting(key, val);
+    setCustomKey("");
+    setCustomVal("");
+  };
+
+  const handleDeleteCustomSetting = (key: string) => {
+    if (isReadOnly) {
+      triggerToast("Permission denied.", "error");
+      return;
+    }
+
+    const updated = { ...settings };
+    delete updated[key];
+
+    const success = syscall.saveSettings(updated);
+    if (success) {
+      setSettings(updated);
+      triggerToast(`Removed custom register: ${key}`);
+    } else {
+      triggerToast("Failed to delete setting.", "error");
+    }
+  };
+
+  const handleSignUpUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUname.trim() || !newFName.trim()) {
+      triggerToast("Username and display name must be defined.", "error");
       return;
     }
 
     const success = syscall.addUser(
-      newUsername.trim().toLowerCase(),
-      newPassword,
+      newUname.trim().toLowerCase(),
+      newPass,
       newRole,
-      newFullName.trim(),
+      newFName.trim(),
       newAvatar
     );
 
     if (success) {
-      showStatus(`User '${newUsername}' successfully appended to '/etc/users.json'.`, "success");
-      setNewUsername("");
-      setNewFullName("");
-      setNewPassword("");
-      reloadConfig();
+      triggerToast(`Account for '${newUname}' successfully registered.`);
+      setNewUname("");
+      setNewFName("");
+      setNewPass("");
+      reloadAll();
     } else {
-      showStatus("Permission Denied: Lacking authorization or user name already exists.", "error");
+      triggerToast("Failed to create user. Username may already exist or permissions are locked.", "error");
     }
   };
 
-  // Delete user account
-  const handleDeleteUser = (uname: string) => {
-    if (syscall.openDialog) {
-      syscall.openDialog(
-        "Confirm Purge",
-        `Are you sure you want to permanently delete the user account for '${uname}'?`,
-        "question",
-        ["Yes", "No"],
-        (res) => {
-          if (res === "Yes") {
-            const success = syscall.deleteUser(uname);
-            if (success) {
-              syscall.openDialog!("Purge Complete", `User credentials for '${uname}' have been successfully deleted.`, "info");
-              reloadConfig();
-            } else {
-              syscall.openDialog!("Action Cancelled", `Cannot delete user '${uname}': Lacking higher credentials.`, "error");
-            }
-          }
-        }
-      );
+  const handlePurgeUser = (uname: string) => {
+    if (isReadOnly) {
+      triggerToast("Lacking root administrator capability to delete users.", "error");
+      return;
+    }
+
+    const success = syscall.deleteUser(uname);
+    if (success) {
+      triggerToast(`User '${uname}' has been deleted.`);
+      reloadAll();
     } else {
-      const success = syscall.deleteUser(uname);
-      if (success) {
-        showStatus(`Purged user credentials for '${uname}'`, "success");
-        reloadConfig();
-      } else {
-        showStatus(`Cannot delete user '${uname}': system restrictions active.`, "error");
-      }
+      triggerToast("Cannot delete user. System user rules protect default accounts.", "error");
     }
   };
+
+  // Helper to determine the datatype string of any value
+  const getDataType = (val: any): "string" | "boolean" | "number" | "array" => {
+    if (Array.isArray(val)) return "array";
+    if (typeof val === "boolean") return "boolean";
+    if (typeof val === "number") return "number";
+    return "string";
+  };
+
+  // Build rows array combining predefined options and new/deleted ones
+  const allKeys = Object.keys(settings);
+  const predefinedKeys = PREDEFINED_SETTINGS.map(p => p.key);
+  const customKeys = allKeys.filter(k => !predefinedKeys.includes(k));
 
   return (
-    <div className="flex-1 bg-[#eeeeec] flex flex-col min-h-0 select-none text-xs text-[#2e3436] font-sans relative">
-      
-      {/* Absolute non-shifting alert dialog module */}
-      {statusMsg && (
-        <div className="absolute inset-0 bg-[#2e3436]/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 select-none animate-[fadeIn_0.12s_ease-out]">
-          <div className="w-full max-w-[320px] bg-[#f2ebd9] border-2 border-[#a29481] rounded-md shadow-2xl flex flex-col overflow-hidden text-[#2e3436]">
-            <div className="bg-[#714b43] text-[#f2ebd9] px-3 py-1.5 flex items-center justify-between font-bold text-[9.5px] uppercase select-none">
-              <span>{statusType === "success" ? "✅ Success feedback" : "⚠️ Authorization error"}</span>
-              <button 
-                type="button"
-                onClick={() => {
-                  setStatusMsg("");
-                  setStatusType("");
-                }}
-                className="w-4 h-4 rounded-xs hover:bg-white/20 flex items-center justify-center text-[9px] font-black cursor-pointer text-white"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="p-4 flex items-start space-x-3 bg-[#faf6ec]/50 border-b border-[#a29481]/30">
-              <div className="pt-0.5 shrink-0 text-md select-none">
-                {statusType === "success" ? "✔️" : "⚠️"}
-              </div>
-              <p className="text-[10px] leading-4.5 font-bold text-[#555753] select-text">
-                {statusMsg}
-              </p>
-            </div>
-            
-            <div className="bg-[#ebd9c8]/50 p-2 text-right">
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusMsg("");
-                  setStatusType("");
-                }}
-                className="px-4 py-1 bg-[#eae1c8] hover:bg-[#dfd5bc] text-[#714b43] font-black uppercase text-[9px] border border-[#a29481] rounded shadow-xs active:translate-y-px select-none cursor-pointer"
-              >
-                Dismiss Alert
-              </button>
-            </div>
+    <div className="flex-1 bg-white flex flex-col min-h-0 select-text font-sans text-gray-800">
+      {/* Upper Navigation Ribbon */}
+      <div className="border-b border-gray-150 px-4 py-3 bg-gray-50 flex items-center justify-between shrink-0">
+        <div className="flex items-center space-x-2">
+          <SettingsIcon className="w-5 h-5 text-gray-600" />
+          <h1 className="text-sm font-semibold text-gray-900 tracking-tight">System Configuration</h1>
+          <span className="text-[10px] text-gray-400 font-mono">/etc/sysconfig.json</span>
+        </div>
+        
+        <div className="flex items-center space-x-3 text-xs">
+          {/* Tabs */}
+          <div className="flex space-x-1 bg-gray-200/60 p-0.5 rounded-md">
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`px-3 py-1 rounded-sm text-xs font-medium transition-all ${
+                activeTab === "settings"
+                  ? "bg-white text-gray-900 shadow-xs"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              System Settings
+            </button>
+            <button
+              onClick={() => setActiveTab("users")}
+              className={`px-3 py-1 rounded-sm text-xs font-medium transition-all ${
+                activeTab === "users"
+                  ? "bg-white text-gray-900 shadow-xs"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              User Accounts
+            </button>
           </div>
+
+          <div className="w-[1px] h-4 bg-gray-200" />
+
+          {/* Sync Button */}
+          <button
+            onClick={reloadAll}
+            className="flex items-center space-x-1 px-2.5 py-1 text-[11px] text-gray-500 bg-white border border-gray-200 hover:border-gray-300 rounded transition-colors active:translate-y-px"
+            title="Reload from File System"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Sync</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mode Warning Bar */}
+      {isReadOnly && (
+        <div className="bg-amber-50 border-b border-amber-100 text-amber-800 px-4 py-2 text-xs flex items-center justify-between shrink-0 leading-relaxed">
+          <span>⚠️ <strong>View Only Mode:</strong> You are logged in as <strong>{currentUser}</strong>. Modify restrictions require tux or root admin clearance. Please log out to switch user accounts.</span>
         </div>
       )}
 
-      {/* Top Application Ribbon */}
-      <div className="bg-gradient-to-b from-[#f3f3f1] to-[#edeceb] border-b border-[#babdb6] px-4 py-2 flex items-center justify-between text-gray-800">
-        <div className="flex items-center space-x-2">
-          <SettingsIcon className="w-4 h-4 text-[#3465a4]" />
-          <span className="font-bold text-sm text-[#204a87]">Control Panel & Governance Settings</span>
+      {/* Floating Status Notification Toast */}
+      {message && (
+        <div className={`p-3 text-xs font-medium border-b flex items-center justify-between transition-all shrink-0 ${
+          message.type === "success" 
+            ? "bg-emerald-50 border-emerald-100 text-emerald-800" 
+            : "bg-rose-50 border-rose-100 text-rose-800"
+        }`}>
+          <span>{message.text}</span>
+          <button onClick={() => setMessage(null)} className="opacity-65 hover:opacity-100 text-sm">✕</button>
         </div>
-        <button
-          onClick={reloadConfig}
-          className="p-1 hover:bg-[#d3d7cf] rounded transition-colors flex items-center space-x-1 border border-transparent hover:border-[#babdb6]"
-          title="Sync settings"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-[#555753]" />
-          <span className="text-[10px] font-bold">Reload FS</span>
-        </button>
-      </div>
+      )}
 
-      {/* Main Panel grid split */}
-      <div className="flex-1 flex min-h-0">
-        {/* Navigation Rail */}
-        <div className="w-36 bg-[#edeceb] border-r border-[#babdb6] flex flex-col py-2.5">
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`px-4 py-2.5 text-left font-bold flex items-center space-x-2 text-[11px] transition-colors ${
-              activeTab === "users"
-                ? "bg-[#729fcf]/30 border-r-4 border-r-[#3465a4] text-[#204a87]"
-                : "hover:bg-[#d3d7cf]/40 text-[#2e3436]"
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Accounts</span>
-          </button>
+      {/* Pane Canvas scroll */}
+      <div className="flex-1 p-5 overflow-y-auto">
+        {activeTab === "settings" ? (
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Table layout container */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-xs">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 text-[10.5px] font-bold text-gray-400 uppercase border-b border-gray-100">
+                    <th className="px-4 py-3 w-1/2">Setting Name & Description</th>
+                    <th className="px-4 py-3 w-1/4">Value</th>
+                    <th className="px-4 py-3 w-1/4">Data Type</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-150">
+                  {/* Render standard settings */}
+                  {PREDEFINED_SETTINGS.map((def) => {
+                    const value = settings[def.key] !== undefined ? settings[def.key] : "";
+                    const typeOfKey = getDataType(settings[def.key]);
+                    return (
+                      <tr key={def.key} className="hover:bg-gray-50/50 transition-colors">
+                        {/* Name and description column */}
+                        <td className="px-4 py-3.5">
+                          <p className="font-semibold text-gray-900 text-xs">{def.name}</p>
+                          <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">{def.description}</p>
+                          <p className="text-[9px] font-mono text-gray-400 mt-1.5 font-medium select-all bg-gray-50 px-1 py-0.5 rounded inline-block">ID: {def.key}</p>
+                        </td>
 
-          <button
-            onClick={() => setActiveTab("policies")}
-            className={`px-4 py-2.5 text-left font-bold flex items-center space-x-2 text-[11px] transition-colors ${
-              activeTab === "policies"
-                ? "bg-[#729fcf]/30 border-r-4 border-r-[#3465a4] text-[#204a87]"
-                : "hover:bg-[#d3d7cf]/40 text-[#2e3436]"
-            }`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Permission rules</span>
-          </button>
+                        {/* Interactive edit value column */}
+                        <td className="px-4 py-3.5">
+                          {typeOfKey === "boolean" ? (
+                            <input
+                              type="checkbox"
+                              checked={!!value}
+                              onChange={(e) => handleUpdateSetting(def.key, e.target.checked)}
+                              disabled={isReadOnly}
+                              className="w-4 h-4 text-slate-900 border-gray-300 rounded focus:ring-slate-500 font-sans cursor-pointer disabled:opacity-40"
+                            />
+                          ) : typeOfKey === "number" ? (
+                            <input
+                              type="number"
+                              value={value}
+                              onChange={(e) => handleUpdateSetting(def.key, Number(e.target.value))}
+                              disabled={isReadOnly}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 font-mono text-gray-800 disabled:opacity-50 disabled:bg-gray-50"
+                            />
+                          ) : typeOfKey === "array" ? (
+                            <input
+                              type="text"
+                              value={Array.isArray(value) ? value.join(", ") : String(value)}
+                              onChange={(e) => {
+                                const parts = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
+                                handleUpdateSetting(def.key, parts);
+                              }}
+                              disabled={isReadOnly}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 font-mono text-gray-800 disabled:opacity-50 disabled:bg-gray-50"
+                              placeholder="comma, separated, list"
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              value={String(value)}
+                              onChange={(e) => handleUpdateSetting(def.key, e.target.value)}
+                              disabled={isReadOnly}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 text-gray-800 disabled:opacity-50 disabled:bg-gray-50"
+                            />
+                          )}
+                        </td>
 
-          <button
-            onClick={() => setActiveTab("hardware")}
-            className={`px-4 py-2.5 text-left font-bold flex items-center space-x-2 text-[11px] transition-colors ${
-              activeTab === "hardware"
-                ? "bg-[#729fcf]/30 border-r-4 border-r-[#3465a4] text-[#204a87]"
-                : "hover:bg-[#d3d7cf]/40 text-[#2e3436]"
-            }`}
-          >
-            <Cpu className="w-3.5 h-3.5" />
-            <span>Core Hardware</span>
-          </button>
+                        {/* Data Type selectors column */}
+                        <td className="px-4 py-3.5">
+                          <select
+                            value={typeOfKey}
+                            onChange={(e) => handleTypeChange(def.key, e.target.value)}
+                            disabled={isReadOnly}
+                            className="bg-white border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-slate-400 font-mono disabled:opacity-50 text-gray-700 w-full"
+                          >
+                            <option value="string">String</option>
+                            <option value="boolean">Boolean</option>
+                            <option value="number">Number</option>
+                            <option value="array">Array</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
 
-          <button
-            onClick={() => setActiveTab("virtual_memory")}
-            className={`px-4 py-2.5 text-left font-bold flex items-center space-x-2 text-[11px] transition-colors ${
-              activeTab === "virtual_memory"
-                ? "bg-[#729fcf]/30 border-r-4 border-r-[#3465a4] text-[#204a87]"
-                : "hover:bg-[#d3d7cf]/40 text-[#2e3436]"
-            }`}
-          >
-            <HardDrive className="w-3.5 h-3.5" />
-            <span>Virtual Memory</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("aesthetics")}
-            className={`px-4 py-2.5 text-left font-bold flex items-center space-x-2 text-[11px] transition-colors ${
-              activeTab === "aesthetics"
-                ? "bg-[#729fcf]/30 border-r-4 border-r-[#3465a4] text-[#204a87]"
-                : "hover:bg-[#d3d7cf]/40 text-[#2e3436]"
-            }`}
-          >
-            <Monitor className="w-3.5 h-3.5" />
-            <span>Aesthetics</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("daemons")}
-            className={`px-4 py-2.5 text-left font-bold flex items-center space-x-2 text-[11px] transition-colors ${
-              activeTab === "daemons"
-                ? "bg-[#729fcf]/30 border-r-4 border-r-[#3465a4] text-[#204a87]"
-                : "hover:bg-[#d3d7cf]/40 text-[#2e3436]"
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Init Daemons</span>
-          </button>
-
-          {/* Test Disaster segment */}
-          <div className="mt-auto px-2 pb-1 pt-4 border-t border-[#babdb6]/80 text-[10px] text-[#2e3436]">
-            <div className="bg-[#ef2929]/5 border border-[#ef2929]/30 rounded p-2 flex flex-col space-y-1.5">
-              <span className="font-extrabold text-[#ef2929] flex items-center space-x-1">
-                <Flame className="w-3.5 h-3.5 animate-pulse" />
-                <span>Panic Drill</span>
-              </span>
-              <p className="text-[9px] text-[#555753] leading-3">Simulate an immediate system-critical crash.</p>
-              <button
-                onClick={() => {
-                  if (confirm("Execute immediately? This will trigger a realistic GDM Unix Kernel Panic screen to test disaster integrity.")) {
-                    syscall.triggerKernelPanic("Simulated hardware interrupt exception (Panic drill triggered from Settings dashboard).");
-                  }
-                }}
-                className="w-full py-1 text-center font-bold bg-[#ef2929] hover:bg-[#cc0000] text-white rounded text-[9px] shadow-xs active:translate-y-px transition-colors select-none"
-              >
-                Trigger Panic
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Configurations Fields Pane */}
-        <div className="flex-1 bg-white p-4 overflow-y-auto flex flex-col">
-
-          {activeTab === "users" && (
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-[12px] font-bold text-[#204a87] border-b border-[#babdb6] pb-1 flex items-center space-x-1">
-                  <span className="w-2 h-2 rounded-full bg-[#729fcf]" />
-                  <span>Existing User Accounts in `/etc/users.json`</span>
-                </h4>
-                
-                <div className="mt-2 text-[11px] divide-y divide-[#babdb6] max-h-36 overflow-y-auto border border-[#babdb6] rounded bg-[#eeeeec]/20">
-                  {userList.map((user) => (
-                    <div key={user.username} className="p-2.5 flex items-center justify-between hover:bg-[#729fcf]/5">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-7 h-7 bg-[#babdb6] border border-[#555753] rounded-full flex items-center justify-center font-bold text-gray-800 text-[10px] uppercase shadow-inner">
-                          {user.avatar === "penguin" ? "🐧" : user.avatar === "system" ? "⚙️" : "👤"}
-                        </div>
-                        <div>
-                          <p className="font-bold text-[#2e3436]">{user.fullName} ({user.username})</p>
-                          <div className="flex items-center space-x-2 text-[9px]">
-                            <span className="px-1 py-[1px] bg-[#729fcf]/25 text-[#204a87] rounded border border-[#729fcf]/40 font-bold uppercase">{user.role}</span>
-                            <span className="text-gray-500 font-mono">PW: {user.passwordHash ? "••••••" : "blank"}</span>
+                  {/* Render custom dynamic extras */}
+                  {customKeys.map((key) => {
+                    const value = settings[key];
+                    const typeOfKey = getDataType(value);
+                    return (
+                      <tr key={key} className="hover:bg-gray-50/50 transition-colors bg-slate-50/20">
+                        {/* Custom setting name and delete option */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center space-x-1.5">
+                            <p className="font-semibold text-gray-900 text-xs select-all">★ {key}</p>
+                            {!isReadOnly && (
+                              <button
+                                onClick={() => handleDeleteCustomSetting(key)}
+                                className="text-rose-500 hover:text-rose-700 p-0.5 rounded transition-all"
+                                title="Remove parameter"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
-                        </div>
-                      </div>
+                          <p className="text-[10px] text-gray-400 mt-1 italic">User-defined custom variable mapping.</p>
+                        </td>
 
-                      {user.username !== "root" && user.username !== "tux" ? (
-                        <button
-                          onClick={() => handleDeleteUser(user.username)}
-                          className="p-1 hover:bg-[#ef2929]/15 rounded text-[#ef2929] hover:border-[#ef2929]/40 border border-transparent transition-all"
-                          title="Purge user"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      ) : (
-                        <span className="text-[9px] font-mono text-gray-400 font-bold px-1 select-none">SYSTEM</span>
-                      )}
-                    </div>
-                  ))}
+                        {/* Custom value box */}
+                        <td className="px-4 py-3.5">
+                          {typeOfKey === "boolean" ? (
+                            <input
+                              type="checkbox"
+                              checked={!!value}
+                              onChange={(e) => handleUpdateSetting(key, e.target.checked)}
+                              disabled={isReadOnly}
+                              className="w-4 h-4 text-slate-900 border-gray-300 rounded focus:ring-slate-500 font-sans cursor-pointer disabled:opacity-40"
+                            />
+                          ) : typeOfKey === "number" ? (
+                            <input
+                              type="number"
+                              value={value}
+                              onChange={(e) => handleUpdateSetting(key, Number(e.target.value))}
+                              disabled={isReadOnly}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-gray-400 font-mono text-gray-800 disabled:opacity-50"
+                            />
+                          ) : typeOfKey === "array" ? (
+                            <input
+                              type="text"
+                              value={Array.isArray(value) ? value.join(", ") : String(value)}
+                              onChange={(e) => {
+                                const parts = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
+                                handleUpdateSetting(key, parts);
+                              }}
+                              disabled={isReadOnly}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-gray-400 font-mono text-gray-800 disabled:opacity-50"
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              value={String(value)}
+                              onChange={(e) => handleUpdateSetting(key, e.target.value)}
+                              disabled={isReadOnly}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-gray-400 text-gray-800 disabled:opacity-50"
+                            />
+                          )}
+                        </td>
+
+                        {/* Custom data type */}
+                        <td className="px-4 py-3.5">
+                          <select
+                            value={typeOfKey}
+                            onChange={(e) => handleTypeChange(key, e.target.value)}
+                            disabled={isReadOnly}
+                            className="bg-white border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-slate-400 font-mono disabled:opacity-50 text-gray-700 w-full"
+                          >
+                            <option value="string">String</option>
+                            <option value="boolean">Boolean</option>
+                            <option value="number">Number</option>
+                            <option value="array">Array</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Custom register generator */}
+            {!isReadOnly && (
+              <form onSubmit={handleAddCustomSetting} className="bg-gray-50 border border-gray-150 p-4 rounded-lg flex flex-col md:flex-row items-end gap-3.5">
+                <div className="flex-1 w-full">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">New Variable Key</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. security_level_flag"
+                    value={customKey}
+                    onChange={(e) => setCustomKey(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))}
+                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-gray-400 text-gray-800 font-mono"
+                  />
                 </div>
-              </div>
-
-              {/* Add User account Form */}
-              <form onSubmit={handleAddUser} className="bg-[#edeceb]/45 border border-[#babdb6] p-3 rounded space-y-3">
-                <span className="font-bold text-[10px] text-[#204a87] flex items-center space-x-1 uppercase tracking-wider">
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Register Custom Login Account</span>
-                </span>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-gray-600 font-bold mb-0.5">Username (lowercase)</label>
-                    <input
-                      type="text"
-                      className="w-full px-2 py-1 bg-white border border-[#babdb6] rounded text-[11px] outline-none text-[#2e3436] font-mono focus:border-[#729fcf]"
-                      placeholder="e.g. administrator"
-                      value={newUsername}
-                      onChange={(e) => setNewUsername(e.target.value)}
-                      maxLength={16}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-600 font-bold mb-0.5">Full display name</label>
-                    <input
-                      type="text"
-                      className="w-full px-2 py-1 bg-white border border-[#babdb6] rounded text-[11px] outline-none text-[#2e3436] focus:border-[#729fcf]"
-                      placeholder="e.g. Linus Torvalds"
-                      value={newFullName}
-                      onChange={(e) => setNewFullName(e.target.value)}
-                      maxLength={32}
-                    />
-                  </div>
+                
+                <div className="w-full md:w-36 shrink-0">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Casting Type</label>
+                  <select
+                    value={customType}
+                    onChange={(e) => setCustomType(e.target.value as any)}
+                    className="w-full px-2 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-gray-400 text-gray-700"
+                  >
+                    <option value="string">String</option>
+                    <option value="boolean">Boolean</option>
+                    <option value="number">Number</option>
+                    <option value="array">Array</option>
+                  </select>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-gray-600 font-bold mb-0.5">Password hash</label>
-                    <input
-                      type="password"
-                      className="w-full px-2 py-1 bg-white border border-[#babdb6] rounded text-[11px] outline-none text-[#2e3436] font-mono focus:border-[#729fcf]"
-                      placeholder="Empty means blank"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      maxLength={16}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-600 font-bold mb-0.5">System Privilege Level</label>
-                    <select
-                      className="w-full px-2.5 py-1 bg-white border border-[#babdb6] rounded text-[11px] outline-none text-[#2e3436] font-sans font-bold focus:border-[#729fcf]"
-                      value={newRole}
-                      onChange={(e) => setNewRole(e.target.value)}
-                    >
-                      <option value="user">User (guest rights)</option>
-                      <option value="admin">Admin (tux rights)</option>
-                      <option value="root">Root (Full access rights)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-600 font-bold mb-0.5">Avatar Style</label>
-                    <select
-                      className="w-full px-2.5 py-1 bg-white border border-[#babdb6] rounded text-[11px] outline-none text-[#2e3436] font-sans focus:border-[#729fcf]"
-                      value={newAvatar}
-                      onChange={(e) => setNewAvatar(e.target.value)}
-                    >
-                      <option value="penguin">🐧 Penguin Icon</option>
-                      <option value="system">⚙️ Cogwheel</option>
-                      <option value="guest">👤 Profile Shadow</option>
-                    </select>
-                  </div>
+                <div className="flex-1 w-full">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Initial Value</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={customType === "boolean" ? "true / false" : customType === "number" ? "e.g. 50" : "e.g. active"}
+                    value={customVal}
+                    onChange={(e) => setCustomVal(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded outline-none focus:border-gray-400 text-gray-800"
+                  />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-1.5 bg-gradient-to-b from-[#729fcf] to-[#3465a4] text-white rounded font-bold hover:opacity-90 shadow-sm active:translate-y-px transition-all select-none border border-[#204a87]"
+                  className="w-full md:w-auto px-4 py-1.5 bg-gray-900 text-white font-semibold rounded hover:bg-gray-800 text-xs shrink-0 flex items-center justify-center space-x-1 transition-colors"
                 >
-                  Append New Account
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Parameter</span>
                 </button>
               </form>
-            </div>
-          )}
+            )}
 
-          {activeTab === "policies" && (
-            <div className="space-y-4">
-              <h4 className="text-[12px] font-bold text-[#204a87] border-b border-[#babdb6] pb-1 flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-[#ef2929]" />
-                <span>Security Governance Policies & Restricted Paths</span>
-              </h4>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3.5">
-                  <div className="flex items-start space-x-2">
-                    <input
-                      type="checkbox"
-                      id="allow_system_write_chk"
-                      className="mt-0.5 rounded text-[#3465a4]"
-                      checked={allowSystemWrites}
-                      onChange={(e) => setAllowSystemWrites(e.target.checked)}
-                    />
-                    <div>
-                      <label htmlFor="allow_system_write_chk" className="font-bold cursor-pointer text-[#2e3436]">
-                        Allow Normal users system write-access
-                      </label>
-                      <p className="text-[10px] text-gray-500 leading-4 mt-0.5">
-                        If unchecked, only admin (`tux`) and `root` can modify system folders (e.g. `/bin`, `/etc`, `/var`). If checked, guests can write there too.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2">
-                    <input
-                      type="checkbox"
-                      id="restrict_sigkill_chk"
-                      className="mt-0.5 rounded text-[#3465a4]"
-                      checked={restrictProcessKill}
-                      onChange={(e) => setRestrictProcessKill(e.target.checked)}
-                    />
-                    <div>
-                      <label htmlFor="restrict_sigkill_chk" className="font-bold cursor-pointer text-[#2e3436]">
-                        Protect Root Processes and services from SIGKILL
-                      </label>
-                      <p className="text-[10px] text-gray-500 leading-4 mt-0.5">
-                        Refuses requests from lower privilege processes or users to kill core root hardware processes and background service daemons.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2">
-                    <input
-                      type="checkbox"
-                      id="allow_guest_terminal_chk"
-                      className="mt-0.5 rounded text-[#3465a4]"
-                      checked={allowGuestTerminal}
-                      onChange={(e) => setAllowGuestTerminal(e.target.checked)}
-                    />
-                    <div>
-                      <label htmlFor="allow_guest_terminal_chk" className="font-bold cursor-pointer text-[#2e3436]">
-                        Allow Guest/Regular User Terminal CLI shells
-                      </label>
-                      <p className="text-[10px] text-gray-500 leading-4 mt-0.5">
-                        Permits users with standard `user` roles (e.g. `guest`) to invoke CLI shell process lines. Disabling this restricts them to graphical UI icons.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="p-3 border border-[#babdb6] bg-[#eeeeec]/30 rounded space-y-2">
-                    <span className="font-bold text-[10px] text-[#204a87] uppercase tracking-wider flex items-center space-x-1.5 leading-4">
-                      <FolderLock className="w-3.5 h-3.5" />
-                      <span>Confidential Restricted Paths</span>
-                    </span>
-                    <p className="text-[9px] text-gray-500 leading-3">
-                      List absolute file-paths separated by commas. Regular users/guests will be blocked from reading or writing to these file target locations.
-                    </p>
-                    <textarea
-                      className="w-full h-16 p-2 bg-white border border-[#babdb6] rounded text-[11px] text-[#2e3436] font-mono outline-none focus:border-[#729fcf] resize-none"
-                      placeholder="e.g. /var/log/syslog, /etc/users.json"
-                      value={restrictedPathsText}
-                      onChange={(e) => setRestrictedPathsText(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="flex items-start space-x-2">
-                    <input
-                      type="checkbox"
-                      id="panic_missing_cfg_chk"
-                      className="mt-0.5 rounded text-[#3465a4]"
-                      checked={panicOnMissingConfig}
-                      onChange={(e) => setPanicOnMissingConfig(e.target.checked)}
-                    />
-                    <div>
-                      <label htmlFor="panic_missing_cfg_chk" className="font-bold cursor-pointer text-[#2e3436]">
-                        Halt Kernel immediately if core files go missing
-                      </label>
-                      <p className="text-[10px] text-gray-500 leading-4 mt-0.5">
-                        Automatically invokes a <b>Kernel Panic</b> halt state if `/etc/sysconfig.json` is missing, deleted, or write operations corrupt its structural JSON data.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            {/* Test Panic Drill Block */}
+            <div className="bg-red-50/50 border border-red-100 p-4 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-red-950 flex items-center space-x-1.5">
+                  <Flame className="w-4 h-4 text-red-500 animate-pulse animate-duration-1000" />
+                  <span>Verify Crash Recovery System</span>
+                </h4>
+                <p className="text-[11px] text-red-850 leading-relaxed max-w-xl">Triggers an immediate simulated Unix kernel core dump sequence to test backup systems and boot-screen restoration integrity.</p>
               </div>
-
-              <div className="border-t border-[#babdb6] pt-3 flex justify-end">
-                <button
-                  onClick={handleSaveConfig}
-                  className="px-4 py-2 bg-[#729fcf] border border-[#204a87] text-white hover:bg-[#3465a4] rounded font-bold text-xs select-none flex items-center space-x-1.5 shadow-sm active:translate-y-px transition-all"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Commit Governance Rules</span>
-                </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("Proceed with emergency panic verification drill? This will safely force restart the simulated screen environment.")) {
+                    syscall.triggerKernelPanic("Simulated processor hardware interruption. System panic test active.");
+                  }
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs select-none transition-colors shadow-xs hover:shadow-sm"
+              >
+                Trigger Panic Drill
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Simplified User Manager Component */
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-sm font-semibold text-gray-900 flex items-center space-x-1.5 border-b border-gray-150 pb-2">
+                <Users className="w-4 h-4 text-gray-500" />
+                <span>Registered System Accounts</span>
+              </h2>
+              
+              <div className="border border-gray-200 rounded overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse divide-y divide-gray-150">
+                  <thead className="bg-gray-50 font-bold text-gray-400 uppercase select-none text-[9.5px]">
+                    <tr>
+                      <th className="px-4 py-2.5">User Identity</th>
+                      <th className="px-4 py-2.5">Role</th>
+                      <th className="px-4 py-2.5">Password Status</th>
+                      <th className="px-4 py-2.5 text-right">Delete</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-150 text-[11px] text-gray-700">
+                    {userList.map((usr) => (
+                      <tr key={usr.username} className="hover:bg-gray-50/40">
+                        {/* Display & Login values */}
+                        <td className="px-4 py-2.5">
+                          <span className="font-bold text-gray-900">{usr.fullName}</span>{" "}
+                          <span className="text-gray-400 font-mono text-[10px]">({usr.username})</span>
+                        </td>
+                        {/* Access Role */}
+                        <td className="px-4 py-2.5">
+                          <span className={`px-1.5 py-0.5 font-bold uppercase rounded text-[9px] border inline-block ${
+                            usr.role === "admin" 
+                              ? "bg-slate-100 border-slate-200 text-slate-800" 
+                              : "bg-gray-100 border-gray-200 text-gray-600"
+                          }`}>{usr.role}</span>
+                        </td>
+                        {/* Password placeholder indicators safely */}
+                        <td className="px-4 py-2.5 text-gray-400 font-mono text-[10px]">
+                          {usr.passwordHash ? "Validated (Encrypted)" : "No credential lock"}
+                        </td>
+                        {/* Terminate user capability */}
+                        <td className="px-4 py-2.5 text-right">
+                          {usr.username !== "root" && usr.username !== "tux" && usr.username !== "guest" ? (
+                            <button
+                              onClick={() => handlePurgeUser(usr.username)}
+                              disabled={isReadOnly}
+                              className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                              title={`Delete ${usr.username}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <span className="text-[9px] text-gray-300 font-mono font-bold select-none px-2 uppercase">PROT</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          )}
 
-          {activeTab === "hardware" && (
-            <div className="space-y-4">
-              <h4 className="text-[12px] font-bold text-[#204a87] border-b border-[#babdb6] pb-1 flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-[#8ae234]" />
-                <span>Simulated CPU and Desktop Wallpaper Governance</span>
-              </h4>
+            {/* Account Registration Form */}
+            {!isReadOnly ? (
+              <form onSubmit={handleSignUpUser} className="bg-gray-50 border border-gray-150 p-4 rounded-lg space-y-4">
+                <span className="font-semibold text-xs text-gray-900 flex items-center space-x-1.5">
+                  <UserPlus className="w-4 h-4 text-gray-600" />
+                  <span>Register System Account</span>
+                </span>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="block font-bold text-[#2e3436] mb-1">Simulated Hardware Hostname</label>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Username (lowercase)</label>
                     <input
                       type="text"
-                      className="w-full px-2 py-1 bg-white border border-[#babdb6] rounded text-[11px] outline-none font-mono text-gray-800"
-                      value={hostname}
-                      onChange={(e) => setHostname(e.target.value)}
+                      required
+                      className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded text-xs outline-none focus:border-gray-400 font-mono text-gray-800"
+                      placeholder="e.g. developer_root"
+                      value={newUname}
+                      onChange={(e) => setNewUname(e.target.value)}
                     />
                   </div>
-
                   <div>
-                    <label className="block font-bold text-[#2e3436] mb-1 flex items-center space-x-1.5">
-                      <Cpu className="w-4 h-4 text-gray-500" />
-                      <span>Simulated CPU cores count (affects load loops)</span>
-                    </label>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Full display name</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded text-xs outline-none focus:border-gray-400 text-gray-800"
+                      placeholder="e.g. Alan Turing"
+                      value={newFName}
+                      onChange={(e) => setNewFName(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sign-on Password</label>
+                    <input
+                      type="password"
+                      className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded text-xs outline-none focus:border-gray-400 font-mono text-gray-800"
+                      placeholder="e.g. ultra-safeguard"
+                      value={newPass}
+                      onChange={(e) => setNewPass(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">System clearance role</label>
                     <select
-                      className="w-full px-2.5 py-1.5 bg-white border border-[#babdb6] rounded text-[11px]"
-                      value={cpuThreads}
-                      onChange={(e) => setCpuThreads(Number(e.target.value))}
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded text-xs outline-none focus:border-gray-400 text-gray-700"
                     >
-                      <option value={1}>1 Core Intel Pentium M (No drift)</option>
-                      <option value={2}>2 Cores Intel Core Duo (Standard drift)</option>
-                      <option value={4}>4 Cores Core 2 Quad (Heavy loads drift)</option>
-                      <option value={8}>8 Cores Xeon Server (Hyper drift)</option>
+                      <option value="user">User (Standard Access)</option>
+                      <option value="admin">Admin (System clearance)</option>
                     </select>
                   </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="syslog_verb" className="font-bold text-[#2e3436]">System Logging Verbosity</label>
-                      <select
-                        id="syslog_verb"
-                        className="px-2 py-1 bg-white border border-[#babdb6] rounded"
-                        value={syslogVerbosity}
-                        onChange={(e) => setSyslogVerbosity(e.target.value)}
-                      >
-                        <option value="DEBUG">DEBUG - verbose audits</option>
-                        <option value="INFO">INFO - core actions</option>
-                        <option value="WARN">WARN - warnings</option>
-                        <option value="CRITICAL">CRITICAL - panic loops</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="networking_chk" className="font-bold text-[#2e3436] flex items-center space-x-1.5">
-                        <Network className="w-4 h-4 text-gray-500" />
-                        <span>Networking (eth0) socket state</span>
-                      </label>
-                      <input
-                        type="checkbox"
-                        id="networking_chk"
-                        className="rounded text-[#3465a4]"
-                        checked={networkingEnabled}
-                        onChange={(e) => setNetworkingEnabled(e.target.checked)}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="sound_chk" className="font-bold text-[#2e3436] flex items-center space-x-1.5">
-                        <Volume2 className="w-4 h-4 text-gray-500" />
-                        <span>Core system-sound synthesis speaker</span>
-                      </label>
-                      <input
-                        type="checkbox"
-                        id="sound_chk"
-                        className="rounded text-[#3465a4]"
-                        checked={soundEnabled}
-                        onChange={(e) => setSoundEnabled(e.target.checked)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3.5 border border-[#babdb6] bg-[#eeeeec]/20 rounded space-y-3">
-                  <span className="font-bold text-[10px] text-[#204a87] uppercase tracking-wider flex items-center space-x-1.5 pb-1 border-b">
-                    <Palette className="w-3.5 h-3.5" />
-                    <span>Ubuntu Desktop Themes and Wallpaper</span>
-                  </span>
-
-                  <p className="text-[10px] text-gray-500 leading-4">
-                    Modify the gradient colors parameter. These colors will directly render the desktop backdrop theme on save!
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-gray-600 font-bold mb-0.5">Backdrop Color 1</label>
-                      <div className="flex space-x-1.5">
-                        <input
-                          type="color"
-                          className="w-7 h-6 cursor-pointer border border-[#babdb6] rounded-sm"
-                          value={wallpaperColor1}
-                          onChange={(e) => setWallpaperColor1(e.target.value)}
-                        />
-                        <input
-                          type="text"
-                          className="flex-1 bg-white border border-[#babdb6] rounded text-[10px] font-mono px-1.5 text-center text-gray-700"
-                          value={wallpaperColor1}
-                          onChange={(e) => setWallpaperColor1(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-600 font-bold mb-0.5">Backdrop Color 2</label>
-                      <div className="flex space-x-1.5">
-                        <input
-                          type="color"
-                          className="w-7 h-6 cursor-pointer border border-[#babdb6] rounded-sm"
-                          value={wallpaperColor2}
-                          onChange={(e) => setWallpaperColor2(e.target.value)}
-                        />
-                        <input
-                          type="text"
-                          className="flex-1 bg-white border border-[#babdb6] rounded text-[10px] font-mono px-1.5 text-center text-gray-700"
-                          value={wallpaperColor2}
-                          onChange={(e) => setWallpaperColor2(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quick Color Presets */}
                   <div>
-                    <span className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Color backgroud schemes presets</span>
-                    <div className="flex space-x-1.5">
-                      <button
-                        onClick={() => {
-                          setWallpaperColor1("#2b5c8f");
-                          setWallpaperColor2("#5086c1");
-                        }}
-                        className="px-2 py-1 border border-[#babdb6] rounded bg-[#2b5c8f] text-white text-[9px] font-bold"
-                      >
-                        Classic Blue
-                      </button>
-                      <button
-                        onClick={() => {
-                          setWallpaperColor1("#5e2750");
-                          setWallpaperColor2("#e95420");
-                        }}
-                        className="px-2 py-1 border border-[#babdb6] rounded bg-[#5e2750] text-white text-[9px] font-bold"
-                      >
-                        Ubuntu Human
-                      </button>
-                      <button
-                        onClick={() => {
-                          setWallpaperColor1("#1c1b1a");
-                          setWallpaperColor2("#3b3b3a");
-                        }}
-                        className="px-2 py-1 border border-[#babdb6] rounded bg-[#1c1b1a] text-white text-[9px] font-bold"
-                      >
-                        Charcoal Mono
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-[#babdb6] pt-3 flex justify-end">
-                <button
-                  onClick={handleSaveConfig}
-                  className="px-4 py-2 bg-[#729fcf] border border-[#204a87] text-white hover:bg-[#3465a4] rounded font-bold text-xs select-none flex items-center space-x-1.5 shadow-sm active:translate-y-px transition-all"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Commit Hardware configurations</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "virtual_memory" && (
-            <div className="space-y-4 animate-[fadeIn_0.1s_ease-out]">
-              <h4 className="text-[12px] font-bold text-[#204a87] border-b border-[#babdb6] pb-1 flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-[#3465a4]" />
-                <span>Virtual Memory Cache Allocation & Swapspace Config</span>
-              </h4>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-2">
-                    <input
-                      type="checkbox"
-                      id="vmem_chk"
-                      className="mt-0.5 rounded text-[#3465a4]"
-                      checked={virtualMemoryEnabled}
-                      onChange={(e) => setVirtualMemoryEnabled(e.target.checked)}
-                    />
-                    <div>
-                      <label htmlFor="vmem_chk" className="font-bold cursor-pointer text-[#2e3436]">
-                        Enable Virtual Paging Cache (Swap File)
-                      </label>
-                      <p className="text-[10px] text-gray-500 leading-4 mt-0.5">
-                        Utilizes fallback storage sectors when primary system memory RAM cache exceeds limits.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">Allocated Virtual RAM Volume (MB)</label>
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="range"
-                        min="256"
-                        max="16384"
-                        step="256"
-                        className="flex-1 accent-[#3465a4]"
-                        value={ramSizeAllocated}
-                        onChange={(e) => setRamSizeAllocated(Number(e.target.value))}
-                      />
-                      <span className="font-mono text-xs font-bold text-gray-800 shrink-0 w-16 text-right">
-                        {ramSizeAllocated} MB
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">Swap File Partition Size (MB)</label>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">User Icon</label>
                     <select
-                      className="w-full px-2 py-1 bg-white border border-[#babdb6] rounded text-[11px] outline-none text-[#2e3436] font-bold focus:border-[#729fcf]"
-                      value={swapFileSize}
-                      onChange={(e) => setSwapFileSize(Number(e.target.value))}
+                      value={newAvatar}
+                      onChange={(e) => setNewAvatar(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded text-xs outline-none focus:border-gray-400 text-gray-700"
                     >
-                      <option value="512">512 MB Partition Sector</option>
-                      <option value="1024">1024 MB Partition Sector</option>
-                      <option value="2048">2048 MB Standard Sector</option>
-                      <option value="4096">4096 MB Large Performance Sector</option>
-                      <option value="8192">8192 MB Server Enterprise Sector</option>
+                      <option value="user">Standard User Profile</option>
+                      <option value="penguin">Linux mascot (Penguin)</option>
+                      <option value="system">Core Service Settings Unit</option>
                     </select>
                   </div>
                 </div>
 
-                <div className="p-3.5 border border-[#babdb6] bg-[#eeeeec]/20 rounded space-y-4">
-                  <span className="font-bold text-[10px] text-[#204a87] uppercase tracking-wider flex items-center space-x-1.5 pb-1 border-b">
-                    <Sliders className="w-3.5 h-3.5" />
-                    <span>Cache Swappiness Policies</span>
-                  </span>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-600 font-bold mb-1">Kernel Cache Swappiness Factor (0 - 100)</label>
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="5"
-                        className="flex-1 accent-[#3465a4]"
-                        value={swappinessFactor}
-                        onChange={(e) => setSwappinessFactor(Number(e.target.value))}
-                      />
-                      <span className="font-mono text-xs font-bold text-gray-800 shrink-0 w-10 text-right">
-                        {swappinessFactor}
-                      </span>
-                    </div>
-                    <p className="text-[9px] text-gray-500 mt-1 leading-3">
-                      Higher swappiness tells the operating system kernel to clean passive cache pages to disk early.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-600 font-bold mb-1">Cache Sector Eviction Algorithm</label>
-                    <select
-                      className="w-full px-2 py-1 bg-white border border-[#babdb6] rounded text-[11px]"
-                      value={cacheEvictionPolicy}
-                      onChange={(e) => setCacheEvictionPolicy(e.target.value)}
-                    >
-                      <option value="LRU">Least Recently Used (LRU - Recommended)</option>
-                      <option value="LFU">Least Frequently Used (LFU - Intensive file streams)</option>
-                      <option value="FIFO">First In, First Out (FIFO - Low CPU overhead)</option>
-                      <option value="RANDOM">Arbitrary Random Purge</option>
-                    </select>
-                  </div>
+                <div className="text-right">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-gray-900 border border-gray-900 text-white font-semibold rounded hover:bg-gray-850 text-xs transition-colors"
+                  >
+                    Register User
+                  </button>
                 </div>
-              </div>
-
-              <div className="border-t border-[#babdb6] pt-3 flex justify-end">
-                <button
-                  onClick={handleSaveConfig}
-                  className="px-4 py-2 bg-[#729fcf] border border-[#204a87] text-white hover:bg-[#3465a4] rounded font-bold text-xs select-none flex items-center space-x-1.5 shadow-sm active:translate-y-px transition-all"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Commit Virtual Memory configuration</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "aesthetics" && (
-            <div className="space-y-4 animate-[fadeIn_0.1s_ease-out]">
-              <h4 className="text-[12px] font-bold text-[#204a87] border-b border-[#babdb6] pb-1 flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-[#f57900]" />
-                <span>Operating Desktop Aesthetics & Style Preferences</span>
-              </h4>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">System Global Font Order</label>
-                    <select
-                      className="w-full px-2 py-1 bg-white border border-[#babdb6] rounded text-[11px] cursor-pointer"
-                      value={fontPreset}
-                      onChange={(e) => setFontPreset(e.target.value)}
-                    >
-                      <option value="Tahoma & Verdana">Tahoma priority [Recommended] (Tahoma, Verdana, sans-serif)</option>
-                      <option value="Verdana & Tahoma">Verdana priority (Verdana, Tahoma, sans-serif)</option>
-                      <option value="Modern Inter">Modern Sans-Serif (Inter, system-ui, sans-serif)</option>
-                      <option value="Monospace JetBrains">Tech Monospace (JetBrains Mono, Fira Code, monospace)</option>
-                    </select>
-                    <p className="text-[9px] text-gray-500 mt-1 leading-3">
-                      We exclude MS Sans Serif style. Fonts automatically prioritize Tahoma and Verdana for readable retro curves.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">Graphical Window Trim Border Style</label>
-                    <select
-                      className="w-full px-2 py-1 bg-white border border-[#babdb6] rounded text-[11px]"
-                      value={windowBevelStyle}
-                      onChange={(e) => setWindowBevelStyle(e.target.value)}
-                    >
-                      <option value="classic_bevel">Windows 2000 Classic 3D Double Bevel Border</option>
-                      <option value="sharp">Sharp Flat Minimal Slate border (90-degree corners)</option>
-                      <option value="rounded">Modern Ubuntu GNOME Rounded Window Trim (8px radius)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-start space-x-2 pt-1">
-                    <input
-                      type="checkbox"
-                      id="desktop_grid_chk"
-                      className="mt-0.5 rounded text-[#3465a4]"
-                      checked={showDesktopGrid}
-                      onChange={(e) => setShowDesktopGrid(e.target.checked)}
-                    />
-                    <div>
-                      <label htmlFor="desktop_grid_chk" className="font-bold cursor-pointer text-[#2e3436]">
-                        Align items to Desktop Shortcut Grid
-                      </label>
-                      <p className="text-[10px] text-gray-500 mt-0.5 leading-4">
-                        Enforces grid snap-points on shortcuts for neat arrangement.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3.5 border border-[#babdb6] bg-[#eeeeec]/20 rounded space-y-4">
-                  <span className="font-bold text-[10px] text-[#204a87] uppercase tracking-wider flex items-center space-x-1.5 pb-1 border-b">
-                    <Sliders className="w-3.5 h-3.5" />
-                    <span>Strict Cursor Standards Config</span>
-                  </span>
-
-                  <div className="flex items-start space-x-2">
-                    <input
-                      type="checkbox"
-                      id="cursor1_chk"
-                      className="mt-0.5 rounded text-[#3465a4]"
-                      checked={pointerCursorEnforcement}
-                      onChange={(e) => setPointerCursorEnforcement(e.target.checked)}
-                    />
-                    <div>
-                      <label htmlFor="cursor1_chk" className="font-bold cursor-pointer text-[#2e3436]">
-                        Strict Cursor pointer standards policy
-                      </label>
-                      <p className="text-[10px] text-gray-500 leading-4 mt-0.5">
-                        When enabled, the OS restricts the "pointer" hand cursor solely to hypertext links and shortcuts. Regular buttons use standard arrow cursors.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-2 border border-[#edd400] bg-[#fce94f]/15 text-[#c4a000] text-[9.5px] font-bold rounded leading-3">
-                    ⚠️ DESIGN COMPLIANCE: Beam selection cursors are strictly restricted to input fields only. Action trigger buttons never show the text beam.
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-[#babdb6] pt-3 flex justify-end">
-                <button
-                  onClick={handleSaveConfig}
-                  className="px-4 py-2 bg-[#729fcf] border border-[#204a87] text-white hover:bg-[#3465a4] rounded font-bold text-xs select-none flex items-center space-x-1.5 shadow-sm active:translate-y-px transition-all"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Commit Aesthetics configuration</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "daemons" && (
-            <div className="space-y-4 animate-[fadeIn_0.1s_ease-out]">
-              <h4 className="text-[12px] font-bold text-[#204a87] border-b border-[#babdb6] pb-1 flex items-center space-x-1">
-                <span className="w-2 h-2 rounded-full bg-[#3465a4]" />
-                <span>System Daemon Runlevels and Startup Services</span>
-              </h4>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3.5">
-                  <span className="font-bold text-[10px] text-gray-500 uppercase tracking-wider block">
-                    Active System Services (/etc/init.d/)
-                  </span>
-
-                  <div className="flex items-center justify-between p-2 bg-[#eeeeec]/50 border border-[#babdb6] rounded">
-                    <div>
-                      <p className="font-bold text-[#2e3436] text-[11px]">Flag Registry Daemon (systemFlagEditorUFD)</p>
-                      <p className="text-[9px] text-gray-500">Monitors kernel register writes in real-time</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="rounded text-[#3465a4]"
-                      checked={daemonFlagEditor}
-                      onChange={(e) => setDaemonFlagEditor(e.target.checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 bg-[#eeeeec]/50 border border-[#babdb6] rounded">
-                    <div>
-                      <p className="font-bold text-[#2e3436] text-[11px]">VFS File Indexer Crawler (vfs_indexer_svc)</p>
-                      <p className="text-[9px] text-gray-500">Indexes file descriptors for lookup and operations</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="rounded text-[#3465a4]"
-                      checked={daemonFileCrawler}
-                      onChange={(e) => setDaemonFileCrawler(e.target.checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 bg-[#eeeeec]/50 border border-[#babdb6] rounded">
-                    <div>
-                      <p className="font-bold text-[#2e3436] text-[11px]">Task Cron Scheduler (cron_scheduler)</p>
-                      <p className="text-[9px] text-gray-500">Runs registered automated events in the background</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="rounded text-[#3465a4]"
-                      checked={daemonCronScheduler}
-                      onChange={(e) => setDaemonCronScheduler(e.target.checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 bg-[#eeeeec]/50 border border-[#babdb6] rounded">
-                    <div>
-                      <p className="font-bold text-[#2e3436] text-[11px]">Speaker sound synthesizer daemon</p>
-                      <p className="text-[9px] text-gray-500">Provides audio frequencies on standard kernel alerts</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="rounded text-[#3465a4]"
-                      checked={daemonAudioSynth}
-                      onChange={(e) => setDaemonAudioSynth(e.target.checked)}
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3.5 border border-[#babdb6] bg-[#eeeeec]/20 rounded space-y-4">
-                  <span className="font-bold text-[10px] text-[#204a87] uppercase tracking-wider flex items-center space-x-1.5 pb-1 border-b">
-                    <Sliders className="w-3.5 h-3.5" />
-                    <span>Boot and Grace Options</span>
-                  </span>
-
-                  <div className="flex items-start space-x-2">
-                    <input
-                      type="checkbox"
-                      id="bootlog_chk"
-                      className="mt-0.5 rounded text-[#3465a4]"
-                      checked={bootLogVerbose}
-                      onChange={(e) => setBootLogVerbose(e.target.checked)}
-                    />
-                    <div>
-                      <label htmlFor="bootlog_chk" className="font-bold cursor-pointer text-[#2e3436]">
-                        Verbose Startup boot log output (Verbose OS)
-                      </label>
-                      <p className="text-[10px] text-gray-500 leading-4 mt-0.5">
-                        Outputs detailed startup steps and registers allocations before initializing desktop windows.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-600 font-bold mb-1">Shutdown Timeout Grace period (Seconds)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      className="w-full px-2 py-1 bg-white border border-[#babdb6] rounded text-[11px] font-mono outline-none text-[#2e3436]"
-                      value={shutdownGraceSeconds}
-                      onChange={(e) => setShutdownGraceSeconds(Number(e.target.value))}
-                    />
-                    <p className="text-[9px] text-gray-500 mt-1 leading-3">
-                      Amount of seconds allowed for daemons to flush cache files to simulated flash storage.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-[#babdb6] pt-3 flex justify-end">
-                <button
-                  onClick={handleSaveConfig}
-                  className="px-4 py-2 bg-[#729fcf] border border-[#204a87] text-white hover:bg-[#3465a4] rounded font-bold text-xs select-none flex items-center space-x-1.5 shadow-sm active:translate-y-px transition-all"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Commit Boot runlevels configurations</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+              </form>
+            ) : (
+              <p className="text-xs text-gray-400 font-medium text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200 select-none">
+                Registering accounts is blocked. Please login as tux or root account to unlock permissions.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

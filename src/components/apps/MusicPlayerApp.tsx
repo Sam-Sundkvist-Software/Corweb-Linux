@@ -29,6 +29,7 @@ export default function MusicPlayerApp({ syscall, initialFilePath }: MusicPlayer
   const [scanDir, setScanDir] = useState<string>("/home/guest/Desktop");
 
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [isAudioServerOnline, setIsAudioServerOnline] = useState<boolean>(true);
 
   // Graphic states: equalizer blocks
   const [eqBars, setEqBars] = useState<number[]>([1, 2, 4, 1, 3, 5, 2, 4]);
@@ -47,6 +48,21 @@ export default function MusicPlayerApp({ syscall, initialFilePath }: MusicPlayer
   ];
 
   useEffect(() => {
+    const checkAudioServer = () => {
+      try {
+        const svcs = syscall.getServices();
+        const audioSvc = svcs.find((s) => s.name === "audio-server.service");
+        setIsAudioServerOnline(audioSvc ? audioSvc.status === "active" : true);
+      } catch {
+        setIsAudioServerOnline(true);
+      }
+    };
+    checkAudioServer();
+    const interval = setInterval(checkAudioServer, 1500);
+    return () => clearInterval(interval);
+  }, [syscall]);
+
+  useEffect(() => {
     if (fileContent.startsWith("data:audio/") || filePath.toLowerCase().endsWith(".mp3") || filePath.toLowerCase().endsWith(".wav") || filePath.toLowerCase().endsWith(".ogg") || filePath.toLowerCase().endsWith(".aac") || filePath.toLowerCase().endsWith(".flac")) {
       if (fileContent.startsWith("data:audio/")) {
         const aud = new Audio(fileContent);
@@ -63,12 +79,12 @@ export default function MusicPlayerApp({ syscall, initialFilePath }: MusicPlayer
 
   useEffect(() => {
     if (!audioElement) return;
-    if (isPlaying) {
+    if (isPlaying && isAudioServerOnline) {
       audioElement.play().catch(() => {});
     } else {
       audioElement.pause();
     }
-  }, [isPlaying, audioElement]);
+  }, [isPlaying, audioElement, isAudioServerOnline]);
 
   useEffect(() => {
     if (!audioElement) return;
@@ -141,7 +157,7 @@ export default function MusicPlayerApp({ syscall, initialFilePath }: MusicPlayer
 
   // Play a single bitcrushed chiptune note on the synth
   const playSynthesizerNote = (frequency: number) => {
-    if (!audioCtxRef.current || isMuted) return;
+    if (!audioCtxRef.current || isMuted || !isAudioServerOnline) return;
     try {
       if (audioCtxRef.current.state === "suspended") {
         audioCtxRef.current.resume();
@@ -349,6 +365,15 @@ export default function MusicPlayerApp({ syscall, initialFilePath }: MusicPlayer
         {/* Vintage Cassette deck drawing box */}
         <div className="flex-1 flex flex-col justify-between p-3 m-1 border-2 border-t-gray-500 border-l-gray-500 border-r-white border-b-white bg-neutral-900 overflow-hidden relative">
           
+          {!isAudioServerOnline && (
+            <div className="absolute inset-0 bg-red-950/95 text-red-500 font-mono text-center flex flex-col justify-center items-center p-4 z-20">
+              <span className="text-lg font-black animate-pulse">ALSA AUDIO SYSTEM OFFLINE</span>
+              <p className="text-[10px] text-gray-300 mt-2 max-w-[260px] leading-4.5 font-mono">
+                The sound backend server daemon <code className="text-red-400 font-bold">audio-server.service</code> was halted. Start the process via Rules panel of systemctl to restore audio pipelines.
+              </p>
+            </div>
+          )}
+
           {/* Diagnostic messages for VFS */}
           {errorMsg ? (
             <div className="p-3 bg-red-950/80 border border-red-700 text-red-400 rounded font-mono text-center text-xs leading-5">

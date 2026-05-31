@@ -14,7 +14,7 @@ export const useWebOS = () => {
   const [windows, setWindows] = useState<WindowInstance[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [currentCwd, setCurrentCwd] = useState<string>("/home/guest");
-  const [dialogs, setDialogs] = useState<DialogInstance[]>([]);
+  const dialogs = windows.filter(w => w.appId === "dialogUF" && w.dialogData).map(w => w.dialogData!) as DialogInstance[];
   
   // Interactive FOB Boot Loader states
   const [bootLoaderPhase, setBootLoaderPhase] = useState<"loader" | "booting" | "none">("loader");
@@ -381,8 +381,8 @@ export const useWebOS = () => {
     onClose?: (result: any) => void,
     initialInputVal?: string
   ) => {
-    const id = `diag_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const newDialog: DialogInstance = {
+    const id = `win_diag_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const dialogData: DialogInstance = {
       id,
       title,
       message,
@@ -392,21 +392,57 @@ export const useWebOS = () => {
       onClose,
       inputValue: initialInputVal || ""
     };
-    setDialogs((prev) => [...prev, newDialog]);
+
+    const width = type === "import" ? 340 : 310;
+    const height = type === "import" ? 230 : 200;
+    const screenW = typeof window !== "undefined" ? window.innerWidth : 1024;
+    const screenH = typeof window !== "undefined" ? window.innerHeight : 768;
+
+    let x = (screenW - width) / 2;
+    let y = (screenH - height) / 2;
+
+    if (ownerWindowId) {
+      setWindows((prev) => {
+        const parentWin = prev.find((w) => w.id === ownerWindowId);
+        if (parentWin) {
+          x = parentWin.x + (parentWin.width - width) / 2;
+          y = parentWin.y + (parentWin.height - height) / 2;
+        }
+        return prev;
+      });
+    }
+
+    const newWindow: WindowInstance = {
+      id,
+      appId: "dialogUF",
+      title,
+      x: Math.max(20, x),
+      y: Math.max(40, y),
+      width,
+      height,
+      isMaximized: false,
+      isMinimized: false,
+      zIndex: 99999,
+      parentWindowId: ownerWindowId,
+      dialogData,
+    };
+
+    setWindows((prev) => [...prev, newWindow]);
+    setActiveWindowId(id);
     return id;
   }, []);
 
   const closeDialog = useCallback((id: string, result: any) => {
-    setDialogs((prev) => {
-      const target = prev.find((d) => d.id === id);
-      if (target && target.onClose) {
+    setWindows((prev) => {
+      const targetWin = prev.find((w) => w.id === id || (w.dialogData && w.dialogData.id === id));
+      if (targetWin && targetWin.dialogData && targetWin.dialogData.onClose) {
         try {
-          target.onClose(result);
+          targetWin.dialogData.onClose(result);
         } catch (e) {
           console.error("Error in Dialog onClose callback:", e);
         }
       }
-      return prev.filter((d) => d.id !== id);
+      return prev.filter((w) => w.id !== (targetWin ? targetWin.id : id));
     });
   }, []);
 
@@ -742,6 +778,52 @@ export const useWebOS = () => {
       case "reboot":
         rebootSystem();
         output = ["Rebooting hardware system loop..."];
+        break;
+
+      case "whoami":
+        output = [syscall.getCurrentUser()];
+        break;
+
+      case "echo":
+        output = [args.join(" ")];
+        break;
+
+      case "grep":
+        if (args.length < 2) {
+          output = ["Usage: grep [pattern] [filepath]"];
+        } else {
+          const pattern = args[0];
+          const filepath = compilePath(args[1]);
+          const fileVal = syscall.readFile(filepath);
+          if (fileVal.startsWith("Error:")) {
+            output = [fileVal];
+          } else {
+            const matches = fileVal.split("\n").filter(line => line.toLowerCase().includes(pattern.toLowerCase()));
+            output = matches.length > 0 ? matches : ["No matching lines found."];
+          }
+        }
+        break;
+
+      case "nano":
+        if (!args[0]) {
+          output = ["Usage: nano [filename]"];
+        } else {
+          output = [`[NANO_MODE_ACTIVATE] ${compilePath(args[0])}`];
+        }
+        break;
+
+      case "sudo":
+        if (!args[0]) {
+          output = ["Usage: sudo [command]"];
+        } else {
+          const userRole = syscall.getCurrentUserRole();
+          if (userRole !== "admin" && userRole !== "root") {
+            output = ["Permission denied: user guest is not in the sudoers file. This incident will be reported."];
+          } else {
+            const subLine = args.join(" ");
+            output = [`Executing with administrator permissions:`, ...executeTerminalCommand(subLine)];
+          }
+        }
         break;
 
       default:

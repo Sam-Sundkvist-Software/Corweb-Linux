@@ -1,0 +1,17 @@
+{
+  "themeManager": {
+    "title": "Desktop Theme Configurator",
+    "description": "Select from the skeuomorphic engine theme presets to apply native visual composites globally.",
+    "warningTitle": "CRITICAL HARDWARE INSTABILITY WARNING",
+    "warningText": "Applying the experimental Corrupt / Shattered theme can cause signal phase glitches, interrupt thread loops, and spawn pixel wreckage. Perform drill under authorized clearance only.",
+    "btnApply": "Apply Theme Preset",
+    "btnClassicBlue": "Classic Blue (Original)",
+    "btnWin95": "Windows 95 Classic",
+    "btnUnix2006": "Ubuntu 2006 (Human)",
+    "btnBroken": "Broken (Corrupt Artifacts)",
+    "successMsg": "Global theme updated successfully. System composites reset.",
+    "themeLabel": "Active Compositor Skin:",
+    "wallpaperLabel1": "Primary Background Accent:",
+    "wallpaperLabel2": "Secondary Background Accent:"
+  }
+}

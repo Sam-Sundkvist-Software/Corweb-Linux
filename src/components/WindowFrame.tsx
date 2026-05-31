@@ -277,14 +277,10 @@ export default function WindowFrame({
 
         {/* Modal disable guard overlay */}
         {isDisabled && (
-          <div className="absolute inset-0 bg-black/35 backdrop-blur-[0.5px] flex items-center justify-center select-none cursor-default pointer-events-auto z-50 p-2.5">
-            {activeDialog ? (
-              <InnerDialogOverlay diag={activeDialog} onClose={onCloseDialog!} />
-            ) : (
-              <div className="bg-[#ede9e2] border-[3px] border-t-white border-l-white border-r-[#404040] border-b-[#404040] px-4 py-2 font-sans font-bold text-[#404040] shadow-md uppercase tracking-wide text-xs flex items-center space-x-2 animate-[pulse_2s_infinite]">
-                <span>🔒 Locked by Dialog</span>
-              </div>
-            )}
+          <div className="absolute inset-0 bg-black/15 flex items-center justify-center select-none cursor-not-allowed pointer-events-auto z-50 p-2.5">
+            <div className="bg-[#ede9e2] border-2 border-[#808080] px-4 py-2 font-sans font-bold text-[#404040] shadow-md uppercase tracking-wide text-[10px] flex items-center space-x-1">
+              <span>🔒 Locked by Dialog Window</span>
+            </div>
           </div>
         )}
       </div>
@@ -321,154 +317,6 @@ export default function WindowFrame({
           />
         </>
       )}
-    </div>
-  );
-}
-
-function InnerDialogOverlay({ diag, onClose }: { diag: any; onClose: (id: string, res: any) => void }) {
-  const [inputVal, setInputVal] = useState(diag.inputValue || "");
-  const [isDragOver, setIsDragOver] = useState(false);
-
-  const handleAction = (option: string) => {
-    if (diag.type === "input") {
-      onClose(diag.id, { button: option, value: inputVal });
-    } else {
-      onClose(diag.id, option);
-    }
-  };
-
-  const handleFile = (file: File) => {
-    const reader = new FileReader();
-    const name = file.name.toLowerCase();
-    const isMedia = name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif") || name.endsWith(".bmp") ||
-                    name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".ogg") || name.endsWith(".flac") || name.endsWith(".aac") ||
-                    name.endsWith(".mp4") || name.endsWith(".avi") || name.endsWith(".mov") || name.endsWith(".mkv") || name.endsWith(".webm");
-
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      onClose(diag.id, { name: file.name, content });
-    };
-
-    if (isMedia) {
-      reader.readAsDataURL(file);
-    } else {
-      reader.readAsText(file);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const getIcon = () => {
-    switch (diag.type) {
-      case "error": return <span className="text-2xl shrink-0">🛑</span>;
-      case "warning": return <span className="text-2xl shrink-0">⚠️</span>;
-      case "question": return <span className="text-2xl shrink-0">❓</span>;
-      case "input": return <span className="text-2xl shrink-0">✏️</span>;
-      case "import": return <span className="text-2xl shrink-0">📥</span>;
-      default: return <span className="text-2xl shrink-0">ℹ️</span>;
-    }
-  };
-
-  return (
-    <div 
-      className="w-full max-w-[285px] bg-[#d4d0c8] border-[3px] border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-xl flex flex-col overflow-hidden text-black text-left font-sans animate-[popIn_0.15s_ease-out]"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Title */}
-      <div className="bg-gradient-to-r from-[#0055d4] to-[#3381cc] px-2 py-1 flex items-center justify-between text-white select-none">
-        <span className="font-bold text-[10px] font-mono tracking-wide truncate">
-          ✨ {diag.title || "App Query"}
-        </span>
-        <button
-          onClick={() => handleAction("Cancel")}
-          className="w-3.5 h-3.5 bg-[#d4d0c8] text-black font-bold text-[8.5px] border border-t-white border-l-white border-r-black border-b-black hover:bg-[#c0c0c0] flex items-center justify-center"
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Main Area */}
-      <div className="p-2.5 bg-[#ede9e2] border-b border-[#bab3a8] flex flex-col space-y-2">
-        <div className="flex items-start space-x-2">
-          <div className="shrink-0 pt-0.5">{getIcon()}</div>
-          <div className="flex-1 text-[10.5px] leading-4 text-gray-800 font-bold font-mono">
-            {diag.message}
-          </div>
-        </div>
-
-        {diag.type === "input" && (
-          <div className="mt-1 p-0.5 bg-white border-2 border-t-[#808080] border-l-[#808080] border-r-white border-b-white">
-            <input
-              type="text"
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              className="w-full bg-transparent outline-none border-none text-[10.5px] font-mono text-gray-800 p-0.5"
-              placeholder="Provide response..."
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAction("OK");
-              }}
-            />
-          </div>
-        )}
-
-        {diag.type === "import" && (
-          <div
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={() => setIsDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => {
-              const fileInput = document.createElement("input");
-              fileInput.type = "file";
-              fileInput.accept = ".txt,.cfg,.conf,.json,.sh,.desktop,.html,.css,.png,.jpg,.jpeg,.gif,.bmp,.mp3,.wav,.ogg,.flac,.aac,.mp4,.avi,.mov,.mkv,.webm";
-              fileInput.onchange = (e: any) => {
-                if (e.target.files && e.target.files[0]) {
-                  handleFile(e.target.files[0]);
-                }
-              };
-              fileInput.click();
-            }}
-            className={`cursor-pointer border-2 border-dashed rounded-sm p-3.5 flex flex-col items-center justify-center space-y-1.5 select-none transition-colors ${
-              isDragOver ? "border-[#0055d4] bg-[#0055d4]/10" : "border-[#808080] hover:bg-gray-100 bg-white"
-            }`}
-          >
-            <span className="text-lg">📁</span>
-            <span className="text-[9.5px] font-bold text-[#404040] text-center leading-3">
-              Click to choose file or drag/drop here
-            </span>
-            <span className="text-[8px] font-normal text-gray-500 font-mono text-center leading-normal">
-              Any files, including images, video, audio and text
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Buttons */}
-      <div className="bg-[#d4d0c8] p-1 flex items-center justify-end gap-1">
-        {diag.type !== "import" && diag.options?.map((opt: string) => (
-          <button
-            key={opt}
-            onClick={() => handleAction(opt)}
-            className="px-2.5 py-1 bg-[#d4d0c8] text-black font-bold border border-t-white border-l-white border-r-black border-b-black hover:bg-[#c4c0b8] text-[9.5px] uppercase select-none min-w-[50px]"
-          >
-            {opt}
-          </button>
-        ))}
-        {diag.type === "import" && (
-          <button
-            onClick={() => onClose(diag.id, null)}
-            className="px-2.5 py-1 bg-[#d4d0c8] text-black font-bold border border-t-white border-l-white border-r-black border-b-black hover:bg-[#c4c0b8] text-[9.5px] uppercase select-none min-w-[50px]"
-          >
-            Cancel
-          </button>
-        )}
-      </div>
     </div>
   );
 }

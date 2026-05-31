@@ -5,6 +5,45 @@ export enum ProcessState {
   SERVICE = "SERVICE",
 }
 
+export interface OSUser {
+  username: string;
+  passwordHash?: string;
+  role: string;
+  fullName: string;
+  avatar: string;
+}
+
+export interface SystemSettings {
+  hostname?: string;
+  networking_enabled?: boolean;
+  system_sound?: boolean;
+  syslog_verbosity?: string;
+  allow_regular_user_system_writes?: boolean;
+  restrict_process_kill?: boolean;
+  allow_guest_terminal?: boolean;
+  simulated_cpu_threads?: number;
+  kernel_panic_on_missing_sysconfig?: boolean;
+  custom_wallpaper_color_1?: string;
+  custom_wallpaper_color_2?: string;
+  virtual_memory_enabled?: boolean;
+  swap_file_size?: number;
+  swappiness_factor?: number;
+  ram_size_allocated?: number;
+  cache_eviction_policy?: string;
+  current_desktop_theme?: string;
+  font_preset?: string;
+  window_bevel_style?: string;
+  pointer_cursor_enforcement?: boolean;
+  show_desktop_grid?: boolean;
+  daemon_flag_editor_enabled?: boolean;
+  daemon_file_crawler_enabled?: boolean;
+  daemon_cron_scheduler_enabled?: boolean;
+  daemon_audio_synth_enabled?: boolean;
+  boot_log_verbose?: boolean;
+  shutdown_grace_seconds?: number;
+  [customKey: string]: unknown;
+}
+
 export interface Process {
   pid: number;
   name: string;
@@ -15,9 +54,11 @@ export interface Process {
   logs: string[];
   startTime: number;
   isBackground: boolean;
-  onSysCall?: (callName: string, args: any) => void;
+  onSysCall?: (callName: string, args: unknown) => void;
   args?: string[];
   cwd?: string;
+  onStarted?: () => void;
+  onStopped?: () => void;
 }
 
 export enum NodeType {
@@ -50,6 +91,8 @@ export interface WindowInstance {
   zIndex: number;
   args?: string[];
   cwd?: string;
+  parentWindowId?: string;
+  dialogData?: DialogInstance;
 }
 
 export interface DialogInstance {
@@ -60,7 +103,7 @@ export interface DialogInstance {
   ownerWindowId?: string; // If present, the corresponding WindowFrame is disabled
   options?: string[]; // Buttons (e.g., ["OK"], ["Yes", "No"], etc.)
   inputValue?: string; // If type is "input", can hold initial/current value
-  onClose?: (result: any) => void;
+  onClose?: (result: unknown) => void;
 }
 
 export interface DaemonService {
@@ -84,9 +127,9 @@ export interface SystemCallInterface {
   // Authentication & account system
   loginUser: (username: string, passwordHash: string) => boolean;
   logoutUser: () => void;
-  getSettings: () => any;
-  saveSettings: (settings: any) => boolean;
-  getUsers: () => any[];
+  getSettings: () => SystemSettings;
+  saveSettings: (settings: SystemSettings) => boolean;
+  getUsers: () => OSUser[];
   addUser: (username: string, passwordHash: string, role: string, fullName: string, avatar: string) => boolean;
   deleteUser: (username: string) => boolean;
   triggerKernelPanic: (message: string) => void;
@@ -109,8 +152,8 @@ export interface SystemCallInterface {
     message: string,
     type: "info" | "warning" | "error" | "question" | "input" | "import",
     options?: string[],
-    onClose?: (result: any) => void,
+    onClose?: (result: unknown) => void,
     initialInputVal?: string
   ) => string;
-  closeDialog?: (id: string, result: any) => void;
+  closeDialog?: (id: string, result: unknown) => void;
 }

@@ -128,6 +128,7 @@ Everything persists to IndexedDB. If you brick the kernel, click "Hard Reset VFS
                   },
                   "Leafpad.desktop": { name: "Leafpad.desktop", type: NodeType.FILE, createdAt: Date.now(), content: "Exec=leafpad" },
                   "Minesweeper.desktop": { name: "Minesweeper.desktop", type: NodeType.FILE, createdAt: Date.now(), content: "Exec=minesweeper" },
+                  "ThemeConfigurator.desktop": { name: "ThemeConfigurator.desktop", type: NodeType.FILE, createdAt: Date.now(), content: "Exec=themeManager\nIcon=palette" },
                 },
               },
               Documents: {

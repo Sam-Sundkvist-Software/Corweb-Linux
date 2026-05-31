@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { SystemCallInterface } from "../../types/os";
+import { SystemCallInterface, NodeType } from "../../types/os";
 
 interface TerminalAppProps {
   syscall: SystemCallInterface;
@@ -24,6 +24,8 @@ export default function TerminalApp({
   const [historyIdx, setHistoryIdx] = useState(-1);
   const [cwd, setCwd] = useState(initialCwd);
   const [isAccessDenied, setIsAccessDenied] = useState(false);
+  const [nanoFilename, setNanoFilename] = useState<string | null>(null);
+  const [nanoContent, setNanoContent] = useState("");
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const terminalInputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +80,17 @@ export default function TerminalApp({
     // Execute dynamic bash emulation
     const result = executeCommand(line);
 
+    if (result.length > 0 && result[0].startsWith("[NANO_MODE_ACTIVATE] ")) {
+      const filename = result[0].substring("[NANO_MODE_ACTIVATE] ".length);
+      setNanoFilename(filename);
+      const val = syscall.readFile(filename);
+      setNanoContent(val.startsWith("Error:") ? "" : val);
+      setInputVal("");
+      setCmdHistory((prev) => [line, ...prev]);
+      setHistoryIdx(-1);
+      return;
+    }
+
     // If cd commanded, catch updated current working directory
     const parts = line.split(/\s+/);
     if (parts[0]?.toLowerCase() === "cd") {
@@ -128,6 +141,53 @@ export default function TerminalApp({
         setHistoryIdx(-1);
         setInputVal("");
       }
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const parts = inputVal.split(/\s+/);
+      if (parts.length === 1) {
+        const prefix = parts[0]?.toLowerCase() || "";
+        const availableCmds = ["help", "ls", "cd", "pwd", "cat", "touch", "mkdir", "rm", "panic", "neofetch", "fortune", "cowsay", "ps", "kill", "systemctl", "syslog", "clear", "reboot", "whoami", "echo", "grep", "nano", "sudo"];
+        const matches = availableCmds.filter(c => c.startsWith(prefix));
+        if (matches.length === 1) {
+          setInputVal(matches[0] + " ");
+        } else if (matches.length > 1) {
+          setHistory(prev => [
+            ...prev,
+            { text: `${getPrompt()}${inputVal}`, type: "input" },
+            { text: matches.join("   "), type: "output" }
+          ]);
+        }
+      } else {
+        const prefix = parts[parts.length - 1] || "";
+        let directory = ".";
+        let filePrefix = prefix;
+
+        if (prefix.includes("/")) {
+          const lastSlash = prefix.lastIndexOf("/");
+          directory = prefix.substring(0, lastSlash) || "/";
+          filePrefix = prefix.substring(lastSlash + 1);
+        }
+
+        const resolvedDir = directory.startsWith("/") ? directory : (cwd === "/" ? `/${directory}` : `${cwd}/${directory}`);
+        try {
+          const list = syscall.listDir(resolvedDir);
+          const matches = list.filter(item => item.name.toLowerCase().startsWith(filePrefix.toLowerCase()));
+          if (matches.length === 1) {
+            const completedName = matches[0].name + (matches[0].type === NodeType.DIRECTORY ? "/" : "");
+            const beforePrefix = prefix.includes("/") ? prefix.substring(0, prefix.lastIndexOf("/") + 1) : "";
+            parts[parts.length - 1] = beforePrefix + completedName;
+            setInputVal(parts.join(" "));
+          } else if (matches.length > 1) {
+            setHistory(prev => [
+              ...prev,
+              { text: `${getPrompt()}${inputVal}`, type: "input" },
+              { text: matches.map(m => m.name).join("   "), type: "output" }
+            ]);
+          }
+        } catch {
+          // ignore directory list errors
+        }
+      }
     }
   };
 
@@ -140,6 +200,75 @@ export default function TerminalApp({
     const isRoot = user === "root";
     return `${user}@ubuntu-dapper-2006:${displayPath}${isRoot ? "#" : "$"} `;
   };
+
+  if (nanoFilename !== null) {
+    const handleNanoSave = () => {
+      const success = syscall.writeFile(nanoFilename, nanoContent);
+      if (success) {
+        setHistory(prev => [...prev, { text: `[nano] Wrote file: ${nanoFilename}`, type: "output" }]);
+      } else {
+        setHistory(prev => [...prev, { text: `[nano] Error: Permission denied writing file`, type: "output" }]);
+      }
+    };
+
+    const handleNanoExit = () => {
+      setNanoFilename(null);
+      setNanoContent("");
+    };
+
+    return (
+      <div 
+        className="flex-1 bg-black text-[#eeeeec] font-mono text-xs flex flex-col h-full select-text" 
+        id="terminal_nano_editor" 
+        style={{ minHeight: "250px" }}
+      >
+        <div className="bg-[#555753] text-[#eeeeec] px-2 py-0.5 flex items-center justify-between font-bold text-[10px] select-none border-b border-[#2e3436]">
+          <span>📝 UW-NANO v2006</span>
+          <span className="truncate max-w-[200px]">File: {nanoFilename}</span>
+          <span className="text-emerald-400">Lines: {nanoContent.split("\n").length}</span>
+        </div>
+
+        <div className="flex-1 p-2 bg-[#2e3436]/40">
+          <textarea
+            value={nanoContent}
+            onChange={(e) => setNanoContent(e.target.value)}
+            className="w-full h-full bg-transparent text-[#ffffff] font-mono text-xs leading-5 border-none outline-none resize-none focus:ring-0 p-0 caret-[#eeeeec]"
+            placeholder="Type content... Use shortcuts below or click Buttons to manage"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.ctrlKey && e.key === "o") {
+                e.preventDefault();
+                handleNanoSave();
+              } else if (e.ctrlKey && e.key === "x") {
+                e.preventDefault();
+                handleNanoExit();
+              }
+            }}
+          />
+        </div>
+
+        <div className="bg-[#2e3436] text-[#eeeeec] p-2 flex flex-wrap items-center justify-between gap-1 select-none border-t border-[#1a1b1c]">
+          <span className="text-[9.5px] text-yellow-500 font-semibold font-mono">
+            Ctrl+O: Save  |  Ctrl+X: Exit (Keyboard shortcuts)
+          </span>
+          <div className="flex items-center space-x-1.5">
+            <button
+              onClick={handleNanoSave}
+              className="px-2.5 py-0.5 bg-[#4d4d4d] border border-t-[#bababa] border-l-[#bababa] border-r-black border-b-black hover:bg-[#5a5a5a] active:translate-y-px text-[9.5px] text-white font-bold font-mono"
+            >
+              WriteOut (Ctrl+O)
+            </button>
+            <button
+              onClick={handleNanoExit}
+              className="px-2.5 py-0.5 bg-[#4d4d4d] border border-t-[#bababa] border-l-[#bababa] border-r-black border-b-black hover:bg-[#5a5a5a] active:translate-y-px text-[9.5px] text-white font-bold font-mono"
+            >
+              Exit (Ctrl+X)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isAccessDenied) {
     return (

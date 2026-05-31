@@ -8,14 +8,14 @@ import {
   Plus, 
   Trash2, 
   Edit3, 
-  HelpCircle, 
   Upload, 
   Download, 
   Search, 
   FileText, 
   FolderPlus, 
   CornerDownRight,
-  Info
+  RefreshCw,
+  FolderOpen
 } from "lucide-react";
 
 interface FileManagerAppProps {
@@ -41,7 +41,7 @@ export default function FileManagerApp({
   const [errorMsg, setErrorMsg] = useState("");
   const [infoMsg, setInfoMsg] = useState("");
 
-  // History stack for power-user navigation efficiency
+  // History stack for fast navigation
   const [historyBack, setHistoryBack] = useState<string[]>([]);
   const [historyForward, setHistoryForward] = useState<string[]>([]);
 
@@ -49,10 +49,10 @@ export default function FileManagerApp({
 
   const refreshDir = () => {
     try {
-      const list = syscall.listDir(cwd);
+      const list = syscall.listDir(cwd) || [];
       setItems(list);
     } catch {
-      setErrorMsg(`Failed to list contents of ${cwd}`);
+      setErrorMsg(`Could not read the contents of folder "${cwd}"`);
     }
   };
 
@@ -66,7 +66,7 @@ export default function FileManagerApp({
   const navigateTo = (newPath: string, pushHistory = true) => {
     if (pushHistory) {
       setHistoryBack((prev) => [...prev, cwd]);
-      setHistoryForward([]); // clear forward stack on fresh navigations
+      setHistoryForward([]); 
     }
     setCwd(newPath);
   };
@@ -94,7 +94,7 @@ export default function FileManagerApp({
     navigateTo(next, false);
   };
 
-  const onItemClick = (name: string, type: NodeType) => {
+  const onItemClick = (name: string) => {
     setSelectedName(name);
     setRenameInput(name);
     setIsRenaming(false);
@@ -105,49 +105,39 @@ export default function FileManagerApp({
     if (type === NodeType.DIRECTORY) {
       navigateTo(fullPath);
     } else {
-      // File double clicked! Launch specialized application
+      // File launched! Open in a viewer
       const lower = name.toLowerCase();
-      if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".gif") || lower.endsWith(".bmp")) {
+      if ([".png", ".jpg", ".jpeg", ".gif", ".bmp"].some(ext => lower.endsWith(ext))) {
         onLaunchApp("imageViewerUF", `Image Viewer - ${name}`, { content: fullPath, width: 620, height: 460 });
-      } else if (lower.endsWith(".mp4") || lower.endsWith(".avi") || lower.endsWith(".mov") || lower.endsWith(".mkv") || lower.endsWith(".webm")) {
-        onLaunchApp("videoPlayerUF", `Video Player - ${name}`, { content: fullPath, width: 620, height: 480 });
-      } else if (lower.endsWith(".mp3") || lower.endsWith(".wav") || lower.endsWith(".ogg") || lower.endsWith(".flac") || lower.endsWith(".aac")) {
+      } else if ([".mp4", ".avi", ".mov", ".mkv", ".webm"].some(ext => lower.endsWith(ext))) {
+        onLaunchApp("videoPlayerUF", `Video Player - ${name}`, { content: fullPath, width: 620, height: 485 });
+      } else if ([".mp3", ".wav", ".ogg", ".flac", ".aac"].some(ext => lower.endsWith(ext))) {
         onLaunchApp("musicPlayerUF", `Music Player - ${name}`, { content: fullPath, width: 620, height: 460 });
-      } else if (name.endsWith(".txt") || name.endsWith(".conf") || name.endsWith(".json") || name.endsWith(".cfg") || name.endsWith(".sh")) {
-        onLaunchApp("leafpadUF", `Leafpad - ${name}`, { content: fullPath });
       } else {
-        onLaunchApp("leafpadUF", `Viewing: ${name}`, { content: fullPath });
+        onLaunchApp("leafpadUF", `Text Editor - ${name}`, { content: fullPath });
       }
     }
   };
 
-  const handleCreateFile = () => {
+  const handleCreateFile = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newItemName.trim()) return;
     const sanitized = newItemName.trim();
     const dest = cwd === "/" ? `/${sanitized}` : `${cwd}/${sanitized}`;
-    const ok = syscall.writeFile(dest, `[File initialized at ${new Date().toLocaleTimeString()}]`);
+    const ok = syscall.writeFile(dest, `[File created representing: ${sanitized}]`);
     if (ok) {
       setNewItemName("");
       refreshDir();
-      syscall.syslog(`VFS file structured: ${dest}`);
-      if (syscall.openDialog) {
-        syscall.openDialog("File Created", `File '${sanitized}' has been successfully created.`, "info");
-      } else {
-        setInfoMsg(`File '${sanitized}' created successfully.`);
-        setTimeout(() => setInfoMsg(""), 3000);
-      }
+      setInfoMsg(`File "${sanitized}" successfully created.`);
+      setTimeout(() => setInfoMsg(""), 3000);
     } else {
-      const err = "File creation rejected by Kernel permissions or path is invalid.";
-      if (syscall.openDialog) {
-        syscall.openDialog("Permission Denied", err, "error");
-      } else {
-        setErrorMsg(`Error: ${err}`);
-        setTimeout(() => setErrorMsg(""), 4000);
-      }
+      setErrorMsg("Failed to create file. You may not have write privileges in this folder.");
+      setTimeout(() => setErrorMsg(""), 4000);
     }
   };
 
-  const handleCreateDirectory = () => {
+  const handleCreateDirectory = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newItemName.trim()) return;
     const sanitized = newItemName.trim();
     const dest = cwd === "/" ? `/${sanitized}` : `${cwd}/${sanitized}`;
@@ -155,21 +145,11 @@ export default function FileManagerApp({
     if (ok) {
       setNewItemName("");
       refreshDir();
-      syscall.syslog(`VFS directory structured: ${dest}`);
-      if (syscall.openDialog) {
-        syscall.openDialog("Directory Created", `Directory '${sanitized}' has been successfully created.`, "info");
-      } else {
-        setInfoMsg(`Directory '${sanitized}' created successfully.`);
-        setTimeout(() => setInfoMsg(""), 3000);
-      }
+      setInfoMsg(`Folder "${sanitized}" successfully created.`);
+      setTimeout(() => setInfoMsg(""), 3000);
     } else {
-      const err = "Directory creation rejected by Kernel permission rules or parent directory does not exist.";
-      if (syscall.openDialog) {
-        syscall.openDialog("Permission Denied", err, "error");
-      } else {
-        setErrorMsg(`Error: ${err}`);
-        setTimeout(() => setErrorMsg(""), 4000);
-      }
+      setErrorMsg("Failed to create folder. Direction/Permission levels rejected the operation.");
+      setTimeout(() => setErrorMsg(""), 4000);
     }
   };
 
@@ -179,8 +159,8 @@ export default function FileManagerApp({
     
     if (syscall.openDialog) {
       syscall.openDialog(
-        "Confirm Deletion",
-        `Are you sure you want to permanently delete '${selectedName}'? This action cannot be undone.`,
+        "Delete Confirmation",
+        `Are you sure you want to delete "${selectedName}"? This action is permanent.`,
         "question",
         ["Yes", "No"],
         (res) => {
@@ -189,10 +169,10 @@ export default function FileManagerApp({
             if (ok) {
               setSelectedName(null);
               refreshDir();
-              syscall.syslog(`VFS node purged: ${dest}`);
-              syscall.openDialog!("Success", `'${selectedName}' was successfully deleted.`, "info");
+              setInfoMsg(`"${selectedName}" has been permanently deleted.`);
+              setTimeout(() => setInfoMsg(""), 3000);
             } else {
-              syscall.openDialog!("Access Denied", "Action failed: Insufficient kernel privileges or folder is not empty.", "error");
+              syscall.openDialog!("Failed to Delete", "The kernel rejected this action. Check that the folder is empty or log in as administrator.", "error");
             }
           }
         }
@@ -202,11 +182,10 @@ export default function FileManagerApp({
       if (ok) {
         setSelectedName(null);
         refreshDir();
-        syscall.syslog(`VFS node purged: ${dest}`);
-        setInfoMsg("Element deleted successfully.");
+        setInfoMsg(`"${selectedName}" has been successfully deleted.`);
         setTimeout(() => setInfoMsg(""), 3000);
       } else {
-        setErrorMsg("Error: Node deletion rejected by Kernel privileges.");
+        setErrorMsg("Failed to delete element. Permission rules prevent changes to this location.");
         setTimeout(() => setErrorMsg(""), 4000);
       }
     }
@@ -220,27 +199,16 @@ export default function FileManagerApp({
     const currentPath = cwd === "/" ? `/${selectedName}` : `${cwd}/${selectedName}`;
     const targetPath = cwd === "/" ? `/${renameInput.trim()}` : `${cwd}/${renameInput.trim()}`;
 
-    // Read current node content if it's a file
     const node = items.find((i) => i.name === selectedName);
     if (node) {
       if (node.type === NodeType.DIRECTORY) {
-        // Directory renaming can be emulated by creating new and purging old
         const okNew = syscall.createDirectory(targetPath);
         if (okNew) {
           syscall.deleteNode(currentPath);
           refreshDir();
-          if (syscall.openDialog) {
-            syscall.openDialog("Rename Complete", "Folder successfully renamed.", "info");
-          } else {
-            setInfoMsg("Folder successfully renamed.");
-          }
+          setInfoMsg("Folder successfully renamed.");
         } else {
-          const err = "Failed to rename folder. Kernel rejected write.";
-          if (syscall.openDialog) {
-            syscall.openDialog("Access Denied", err, "error");
-          } else {
-            setErrorMsg(err);
-          }
+          setErrorMsg("Failed to rename folder.");
         }
       } else {
         const fileContent = syscall.readFile(currentPath);
@@ -248,18 +216,9 @@ export default function FileManagerApp({
         if (okWrite) {
           syscall.deleteNode(currentPath);
           refreshDir();
-          if (syscall.openDialog) {
-            syscall.openDialog("Rename Complete", "File successfully renamed.", "info");
-          } else {
-            setInfoMsg("File successfully renamed.");
-          }
+          setInfoMsg("File successfully renamed.");
         } else {
-          const err = "Failed to rename file. Check write privileges.";
-          if (syscall.openDialog) {
-            syscall.openDialog("Access Denied", err, "error");
-          } else {
-            setErrorMsg(err);
-          }
+          setErrorMsg("Failed to rename file.");
         }
       }
     }
@@ -268,24 +227,23 @@ export default function FileManagerApp({
     setTimeout(() => { setInfoMsg(""); setErrorMsg(""); }, 3000);
   };
 
-  // Device context local file importer via OS Dialogue API
   const handleImportViaDialog = () => {
     if (syscall.openDialog) {
       syscall.openDialog(
-        "Import File",
-        `Select file to import into target directory '${cwd}':`,
+        "Upload File",
+        `Select a file to load into "${cwd}":`,
         "import",
         [],
         (res) => {
-          if (res && res.name && res.content !== undefined) {
-            const targetPath = cwd === "/" ? `/${res.name}` : `${cwd}/${res.name}`;
-            const ok = syscall.writeFile(targetPath, res.content || "");
+          const fileRes = res as { name?: string; content?: string } | null;
+          if (fileRes && fileRes.name && fileRes.content !== undefined) {
+            const targetPath = cwd === "/" ? `/${fileRes.name}` : `${cwd}/${fileRes.name}`;
+            const ok = syscall.writeFile(targetPath, fileRes.content || "");
             if (ok) {
-              syscall.syslog(`Local device file imported into VFS: ${targetPath}`);
-              setInfoMsg(`Successfully imported local file: ${res.name}`);
+              setInfoMsg(`Successfully uploaded: ${fileRes.name}`);
               refreshDir();
             } else {
-              setErrorMsg(`Kernel rejected write sequence for: ${res.name}`);
+              setErrorMsg(`Upload failed for file: ${fileRes.name}`);
             }
             setTimeout(() => { setInfoMsg(""); setErrorMsg(""); }, 4000);
           }
@@ -294,12 +252,11 @@ export default function FileManagerApp({
     }
   };
 
-  // Device context guest export download
   const handleFileDownload = (name: string) => {
     const targetPath = cwd === "/" ? `/${name}` : `${cwd}/${name}`;
     const content = syscall.readFile(targetPath);
     if (content.startsWith("Error:")) {
-      setErrorMsg("Lacking credentials to read item for export download.");
+      setErrorMsg("Failed to read the file contents for download.");
       setTimeout(() => setErrorMsg(""), 4000);
       return;
     }
@@ -313,11 +270,10 @@ export default function FileManagerApp({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    setInfoMsg(`Downloaded VFS file: ${name}`);
+    setInfoMsg(`Exported downloaded local copy: ${name}`);
     setTimeout(() => setInfoMsg(""), 3000);
   };
 
-  // Drag-and-drop support
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
@@ -329,336 +285,285 @@ export default function FileManagerApp({
 
     Array.from(files).forEach((file: any) => {
       const reader = new FileReader();
-      const name = file.name.toLowerCase();
-      const isMedia = name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif") || name.endsWith(".bmp") ||
-                      name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".ogg") || name.endsWith(".flac") || name.endsWith(".aac") ||
-                      name.endsWith(".mp4") || name.endsWith(".avi") || name.endsWith(".mov") || name.endsWith(".mkv") || name.endsWith(".webm");
-
+      const lowerName = file.name.toLowerCase();
+      
       reader.onload = (evt) => {
         const fileContent = evt.target?.result as string;
         const targetPath = cwd === "/" ? `/${file.name}` : `${cwd}/${file.name}`;
         
         const ok = syscall.writeFile(targetPath, fileContent || "");
         if (ok) {
-          syscall.syslog(`Dropped device file written to WebOS VFS: ${targetPath}`);
-          setInfoMsg(`Imported file: ${file.name}`);
+          setInfoMsg(`Successfully uploaded dropped file: ${file.name}`);
           refreshDir();
         } else {
-          setErrorMsg(`Upload failed (permissions) for: ${file.name}`);
+          setErrorMsg(`Failed to save file: ${file.name}`);
         }
-        setTimeout(() => { setInfoMsg(""); setErrorMsg(""); }, 4000);
+        setTimeout(() => { setInfoMsg(""); setErrorMsg(""); }, 4500);
       };
 
-      if (isMedia) {
-        reader.readAsDataURL(file);
-      } else {
+      const textFormats = [".txt", ".json", ".conf", ".sh", ".html", ".js", ".ts", ".css", ".xml", ".csv"];
+      if (textFormats.some(ext => lowerName.endsWith(ext))) {
         reader.readAsText(file);
+      } else {
+        reader.readAsDataURL(file); 
       }
     });
   };
 
-  // Filter items based on user search text input
   const filteredItems = items.filter((item) =>
     item.name.toLowerCase().includes(searchFilter.toLowerCase())
   );
 
-  // Selected item specs
   const selectedItemNode = items.find((i) => i.name === selectedName);
-  let detailSize = 0;
-  let detailPreview = "";
-  if (selectedItemNode && selectedItemNode.type === NodeType.FILE) {
-    const p = cwd === "/" ? `/${selectedName}` : `${cwd}/${selectedName}`;
-    const cVal = syscall.readFile(p);
-    detailSize = cVal ? new Blob([cVal]).size : 0;
-    detailPreview = cVal ? cVal.substring(0, 50) + (cVal.length > 50 ? "..." : "") : "[No content]";
-  }
 
   return (
     <div 
-      className="flex-1 bg-[#d4d0c8] flex flex-col min-h-0 select-none text-xs text-black font-sans"
+      className="flex-1 bg-white flex flex-col min-h-0 select-none text-xs text-slate-800 font-sans"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {/* 2004 Style Dual Bevel Action Toolbar */}
-      <div className="bg-[#ede9e2] border-b-2 border-white p-2 flex flex-col gap-1.5 shadow-sm">
+      {/* Dynamic Navigation/Filter Topbar */}
+      <div className="border-b border-gray-150 p-3 bg-gray-50 flex items-center justify-between gap-3 flex-wrap shrink-0">
         
-        <div className="flex items-center justify-between gap-2.5">
-          {/* Back/Forward Nav Stack Buttons */}
-          <div className="flex gap-1">
-            <button
-              onClick={handleHistoryBack}
-              disabled={historyBack.length === 0}
-              className="p-1.5 bg-[#d4d0c8] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] hover:bg-[#c0c0c0] disabled:opacity-30 disabled:hover:bg-[#d4d0c8] select-none cursor-pointer flex items-center justify-center"
-              title="Go back"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleHistoryForward}
-              disabled={historyForward.length === 0}
-              className="p-1.5 bg-[#d4d0c8] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] hover:bg-[#c0c0c0] disabled:opacity-30 disabled:hover:bg-[#d4d0c8] select-none cursor-pointer flex items-center justify-center"
-              title="Go forward"
-            >
-              <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleCdUp}
-              disabled={cwd === "/"}
-              className="px-2 py-1 bg-[#d4d0c8] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] hover:bg-[#c0c0c0] font-bold text-[10px] uppercase select-none cursor-pointer disabled:opacity-40"
-              title="CD UP"
-            >
-              Up Index
-            </button>
-          </div>
-
-          {/* Path Address Panel Bar */}
-          <div className="flex-1 flex items-center bg-white border border-t-[#808080] border-l-[#808080] border-r-white border-b-white px-2 py-1 font-mono text-[11px] truncate text-gray-700">
-            <span className="text-[#0040a0] font-bold mr-1.5">vfs:</span>
-            <input 
-              type="text" 
-              value={cwd} 
-              onChange={(e) => setCwd(e.target.value)} 
-              className="flex-1 bg-transparent outline-none border-none select-text py-0" 
-            />
-          </div>
-
-          {/* Quick Search Filtering Tool */}
-          <div className="w-36 flex items-center bg-white border border-t-[#808080] border-l-[#808080] border-r-white border-b-white px-1.5 py-1">
-            <Search className="w-3.5 h-3.5 text-gray-400 mr-1" />
-            <input
-              type="text"
-              placeholder="Search index..."
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="w-full bg-transparent outline-none border-none text-[10.5px] py-0"
-            />
-          </div>
+        {/* Navigation Buttons */}
+        <div className="flex items-center space-x-1 shrink-0">
+          <button
+            onClick={handleHistoryBack}
+            disabled={historyBack.length === 0}
+            className="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded transition-colors disabled:opacity-30 cursor-pointer flex items-center justify-center"
+            title="Go back"
+          >
+            <ArrowLeft className="w-4 h-4 text-gray-600" />
+          </button>
+          <button
+            onClick={handleHistoryForward}
+            disabled={historyForward.length === 0}
+            className="p-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded transition-colors disabled:opacity-30 cursor-pointer flex items-center justify-center"
+            title="Go forward"
+          >
+            <ArrowRight className="w-4 h-4 text-gray-600" />
+          </button>
+          <button
+            onClick={handleCdUp}
+            disabled={cwd === "/"}
+            className="px-2.5 py-1 text-[11px] font-medium bg-white border border-gray-200 hover:border-gray-300 rounded transition-colors disabled:opacity-30 cursor-pointer"
+            title="Go up one folder level"
+          >
+            Up
+          </button>
         </div>
 
-        {/* Rapid Operation Buttons for High Efficiency File Management */}
-        <div className="flex items-center justify-between flex-wrap gap-1.5 mt-0.5 border-t border-[#b2aba2] pt-1.5">
-          <div className="flex items-center space-x-1.5">
-            <button
-              onClick={handleImportViaDialog}
-              className="px-2.5 py-1 bg-[#ede9e2] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] active:translate-y-px text-black hover:bg-[#dfdad0] font-bold text-[10.5px] flex items-center space-x-1 cursor-pointer select-none"
-              title="Import files using the system dialogue API"
-            >
-              <Upload className="w-3.5 h-3.5 text-[#204a87]" />
-              <span className="font-bold">Import Local</span>
-            </button>
+        {/* Current Folder Path Input Field */}
+        <div className="flex-1 min-w-[150px] flex items-center bg-white border border-gray-200 rounded px-2.5 py-1">
+          <span className="text-gray-400 font-mono select-none mr-1">folder:</span>
+          <input 
+            type="text" 
+            value={cwd} 
+            onChange={(e) => setCwd(e.target.value)} 
+            className="flex-1 bg-transparent outline-none border-none py-0 font-medium font-mono text-gray-800" 
+          />
+        </div>
 
-            {selectedName && (
-              <>
-                <button
-                  onClick={() => setIsRenaming(!isRenaming)}
-                  className={`px-2.5 py-1 bg-[#ede9e2] border ${isRenaming ? "border-[#0040a0] bg-[#e3ded4]" : "border-t-white border-l-white border-r-[#808080] border-b-[#808080]"} hover:bg-[#dfdad0] font-bold text-[10.5px] flex items-center space-x-1`}
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-gray-700" />
-                  <span>Rename</span>
-                </button>
-
-                <button
-                  onClick={handleDelete}
-                  className="px-2.5 py-1 bg-red-100 hover:bg-red-200 text-red-800 border border-t-white border-l-white border-r-red-600 border-b-red-600 font-bold text-[10.5px] flex items-center space-x-1"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-red-800" />
-                  <span>Delete</span>
-                </button>
-
-                {selectedItemNode?.type === NodeType.FILE && (
-                  <button
-                    onClick={() => handleFileDownload(selectedName)}
-                    className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 border border-t-white border-l-white border-r-blue-600 border-b-blue-600 font-bold text-[10.5px] flex items-center space-x-1 cursor-pointer select-none"
-                    title="Export in real time back to host device"
-                  >
-                    <Download className="w-3.5 h-3.5 text-blue-800" />
-                    <span>Download</span>
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-
-          <span className="text-[9.5px] text-gray-500 font-mono hidden sm:inline">
-            💡 Drag & Drop device files anywhere inside pane to mount!
-          </span>
+        {/* Live Filter Search Input */}
+        <div className="w-40 flex items-center bg-white border border-gray-200 rounded px-2 py-1">
+          <Search className="w-3.5 h-3.5 text-gray-400 mr-1.5 shrink-0" />
+          <input
+            type="text"
+            placeholder="Search items..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="w-full bg-transparent outline-none border-none text-[11px] py-0 text-gray-700"
+          />
         </div>
       </div>
 
-      {/* Primary Grid with split Details property bar */}
-      <div className="flex-1 flex min-h-0 bg-white border border-t-[#808080] border-l-[#808080] border-r-white border-b-white m-1">
-        
-        {/* VFS Canvas Directory display */}
-        <div className="flex-1 p-3 overflow-y-auto">
-          {errorMsg && (
-            <div className="p-2 mb-2 bg-[#ffe4e1] border-2 border-red-700 text-red-900 font-bold text-[10.5px] uppercase">
-              {errorMsg}
-            </div>
-          )}
+      {/* Selected Items Context Action Bar */}
+      <div className="border-b border-gray-100 px-3.5 py-2 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2 text-[11px] shrink-0">
+        <div className="flex items-center space-x-2">
+          {/* Default Folder Upload Option */}
+          <button
+            onClick={handleImportViaDialog}
+            className="px-3 py-1 bg-white border border-gray-200 hover:border-gray-300 rounded text-gray-700 flex items-center space-x-1 cursor-pointer font-medium transition-colors"
+          >
+            <Upload className="w-3.5 h-3.5 text-gray-500" />
+            <span>Upload File</span>
+          </button>
 
-          {infoMsg && (
-            <div className="p-2 mb-2 bg-[#e2f0d9] border-2 border-green-700 text-green-900 font-bold text-[10.5px] uppercase">
-              {infoMsg}
-            </div>
-          )}
-
-          {/* Quick renaming inline header banner */}
-          {isRenaming && (
-            <div className="mb-2.5 p-2 bg-[#fffacd] border border-yellow-700 rounded-sm flex items-center justify-between gap-1.5">
-              <span className="font-bold text-[10px] text-yellow-900">Rename "{selectedName}":</span>
-              <input
-                type="text"
-                value={renameInput}
-                onChange={(e) => setRenameInput(e.target.value)}
-                className="flex-1 px-1.5 py-0.5 bg-white border border-[#babdb6] text-xs font-mono"
-              />
+          {/* Render selected item context tools */}
+          {selectedName && (
+            <>
+              <div className="w-[1px] h-4 bg-gray-200" />
+              
               <button
-                onClick={handleRenameSubmit}
-                className="px-2 py-0.5 bg-[#d4d0c8] border border-t-white border-l-white border-r-black border-b-black font-bold uppercase text-[9px]"
-              >
-                Apply
-              </button>
-              <button
-                onClick={() => setIsRenaming(false)}
-                className="px-1.5 py-0.5 bg-gray-200 border border-t-white border-l-white border-r-black border-b-black text-[9px]"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {filteredItems.map((item) => (
-              <div
-                key={item.name}
-                onClick={() => onItemClick(item.name, item.type)}
-                onDoubleClick={() => onItemDoubleClick(item.name, item.type)}
-                className={`flex flex-col items-center justify-center p-2.5 rounded border text-center cursor-pointer transition-all duration-100 ${
-                  selectedName === item.name
-                    ? "bg-[#3381cc]/25 border-[#3381cc] text-[#103070]"
-                    : "bg-transparent border-transparent hover:bg-gray-100"
+                onClick={() => setIsRenaming(!isRenaming)}
+                className={`px-3 py-1 bg-white border rounded text-gray-700 flex items-center space-x-1 cursor-pointer font-medium transition-colors ${
+                  isRenaming ? "border-slate-800 bg-slate-100" : "border-gray-200 hover:border-gray-300"
                 }`}
               >
-                {item.type === NodeType.DIRECTORY ? (
-                  <div className="relative mb-2 shrink-0">
-                    {/* Retro clunky folder structure */}
-                    <div className="w-11 h-8.5 bg-[#fce94f] border-2 border-[#c4a000] relative shadow-sm rounded-xs">
-                      <div className="absolute top-[-4px] left-[1px] w-4.5 h-1.5 bg-[#fce94f] border-t-2 border-l-2 border-r-2 border-[#c4a000] rounded-t-xs" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative mb-1.5 shrink-0">
-                    {/* Metal slate text file structure */}
-                    <div className="w-8.5 h-11 bg-white border-2 border-[#555753] relative shadow-sm rounded-xs flex items-center justify-center p-0.5">
-                      <FileText className="w-5 h-5 text-[#888a85]" />
-                      <div className="absolute top-1 right-[1.5px] w-2.5 h-2.5 bg-[#d4d0c8] border-l-2 border-b-2 border-[#555753] rotate-[-45deg] origin-top-right transform translate-x-px translate-y-[-px]" />
-                    </div>
-                  </div>
-                )}
-                <span className="text-[11px] font-mono leading-4 break-all max-w-[90px] text-gray-800 line-clamp-2 px-0.5">
+                <Edit3 className="w-3.5 h-3.5 text-gray-550" />
+                <span>Rename</span>
+              </button>
+
+              <button
+                onClick={handleDelete}
+                className="px-3 py-1 bg-rose-50 border border-rose-100 text-rose-700 hover:bg-rose-100/50 rounded flex items-center space-x-1 cursor-pointer font-medium transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>Delete</span>
+              </button>
+
+              {selectedItemNode?.type === NodeType.FILE && (
+                <button
+                  onClick={() => handleFileDownload(selectedName)}
+                  className="px-3 py-1 bg-blue-50 border border-blue-100 text-blue-700 hover:bg-blue-100/50 rounded flex items-center space-x-1 cursor-pointer font-medium transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Download</span>
+                </button>
+              )}
+
+              {selectedItemNode?.type === NodeType.FILE && (
+                <button
+                  onClick={() => {
+                    const fileP = cwd === "/" ? `/${selectedName}` : `${cwd}/${selectedName}`;
+                    onLaunchApp("leafpadUF", `Text Editor - ${selectedName}`, { content: fileP });
+                  }}
+                  className="px-2 py-1 text-gray-500 hover:text-gray-900 flex items-center font-medium space-x-1"
+                >
+                  <CornerDownRight className="w-3 h-3 text-gray-400" />
+                  <span>Edit in Text Editor</span>
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        <span className="text-[10px] text-gray-400 italic hidden sm:inline">
+          💡 Drag & drop files directly onto this window to save them.
+        </span>
+      </div>
+
+      {/* Inline Renaming Banner */}
+      {isRenaming && (
+        <div className="px-4 py-2 border-b border-amber-100 bg-amber-50/50 flex items-center justify-between gap-2.5 shrink-0">
+          <div className="flex items-center space-x-2 text-xs text-amber-900 font-semibold">
+            <span>Rename "{selectedName}":</span>
+            <input
+              type="text"
+              value={renameInput}
+              onChange={(e) => setRenameInput(e.target.value)}
+              className="px-2.5 py-1 bg-white border border-gray-300 rounded text-xs font-mono outline-none focus:border-amber-500 min-w-[180px]"
+            />
+          </div>
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={handleRenameSubmit}
+              className="px-3 py-1 bg-amber-600 hover:bg-amber-750 text-white rounded font-bold text-[10px] uppercase"
+            >
+              Apply
+            </button>
+            <button
+              onClick={() => setIsRenaming(false)}
+              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded font-bold text-[10px] uppercase"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Primary Files/Directories Canvas Grid */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {errorMsg && (
+          <div className="p-3 mb-3 bg-rose-50 border border-rose-100 text-rose-800 font-medium rounded text-xs select-all">
+            {errorMsg}
+          </div>
+        )}
+
+        {infoMsg && (
+          <div className="p-3 mb-3 bg-emerald-50 border border-emerald-100 text-emerald-800 font-medium rounded text-xs select-none">
+            {infoMsg}
+          </div>
+        )}
+
+        {/* Crisp Responsive Folder/File List */}
+        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+          {filteredItems.map((item) => {
+            const isSelected = selectedName === item.name;
+            return (
+              <div
+                key={item.name}
+                onClick={() => onItemClick(item.name)}
+                onDoubleClick={() => onItemDoubleClick(item.name, item.type)}
+                className={`flex flex-col items-center justify-center p-3 rounded-lg border text-center cursor-pointer transition-all ${
+                  isSelected
+                    ? "bg-slate-100/80 border-slate-300 text-slate-905"
+                    : "bg-transparent border-transparent hover:bg-gray-50/70"
+                }`}
+              >
+                {/* Clean, recognizable Lucide icon elements with no redundant custom divs */}
+                <div className="mb-2.5 pt-1.5 shrink-0">
+                  {item.type === NodeType.DIRECTORY ? (
+                    <Folder className={`w-11 h-11 ${
+                      isSelected ? "text-slate-700" : "text-slate-400"
+                    }`} />
+                  ) : (
+                    <FileText className={`w-10 h-10 ${
+                      isSelected ? "text-slate-600" : "text-slate-400"
+                    }`} />
+                  )}
+                </div>
+                
+                <span className="text-[11px] leading-relaxed break-all font-medium text-gray-800 line-clamp-2 px-1 max-w-[100px]">
                   {item.name}
                 </span>
               </div>
-            ))}
+            );
+          })}
 
-            {filteredItems.length === 0 && (
-              <div className="col-span-full py-16 text-center text-gray-400 font-mono italic text-[11px]">
-                {items.length === 0 ? "Folder is empty. Seed elements below!" : "No nodes match directory search filter."}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Properties Selected Element Specs Sidebar Pane */}
-        <div className="w-48 bg-[#ede9e2] border-l border-[#babdb6] p-2.5 flex flex-col justify-between min-h-0 shrink-0">
-          <div className="space-y-2.5">
-            <span className="font-bold text-[#103070] border-b border-[#babdb6] pb-1.5 flex items-center space-x-1.5 uppercase text-[10px]">
-              <Info className="w-3.5 h-3.5" />
-              <span>Properties Sidebar</span>
-            </span>
-
-            {selectedItemNode ? (
-              <div className="space-y-2 select-text font-sans">
-                <div>
-                  <span className="block text-[9.5px] font-bold text-gray-500 uppercase">Item Name</span>
-                  <p className="font-mono text-[11px] select-all font-bold text-gray-800 break-all">{selectedName}</p>
-                </div>
-
-                <div>
-                  <span className="block text-[9.5px] font-bold text-gray-500 uppercase">Node Type</span>
-                  <div className="flex items-center space-x-1 mt-0.5">
-                    <span className="text-[10px] bg-gray-200 border border-gray-400 p-0.5 font-bold rounded uppercase">
-                      {selectedItemNode.type === NodeType.DIRECTORY ? "📁 Directory" : "🗎 File"}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedItemNode.type === NodeType.FILE && (
-                  <>
-                    <div>
-                      <span className="block text-[9.5px] font-bold text-gray-500 uppercase">Decoded Size</span>
-                      <p className="font-mono text-[10px] text-gray-700">{detailSize} Bytes</p>
-                    </div>
-
-                    <div className="bg-white border p-1 rounded-sm border-t-gray-400 border-l-gray-400 leading-4 text-gray-600">
-                      <span className="block text-[8.5px] font-bold text-gray-400 uppercase">VFS Preview Segment</span>
-                      <p className="font-mono text-[9px] truncate" title={detailPreview}>{detailPreview || "[Blank]"}</p>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        const fileP = cwd === "/" ? `/${selectedName}` : `${cwd}/${selectedName}`;
-                        onLaunchApp("leafpadUF", `Leafpad - ${selectedName}`, { content: fileP });
-                      }}
-                      className="w-full py-1 bg-[#d4d0c8] hover:bg-[#c0c0c0] font-bold border border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center space-x-1 text-[10.5px]"
-                    >
-                      <CornerDownRight className="w-3 h-3 text-[#204a87]" />
-                      <span>Edit in Leafpad</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="text-[10px] text-gray-400 italic font-mono leading-4 p-8 text-center bg-gray-50 border rounded-sm">
-                Highlight folder or file to inspect stats.
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 pt-2 border-t border-[#beb8ad] text-center text-[9px] text-gray-400 font-mono leading-3.5">
-            Role: {syscall.getCurrentUserRole().toUpperCase()}<br />
-            User: {syscall.getCurrentUser()}
-          </div>
+          {filteredItems.length === 0 && (
+            <div className="col-span-full py-16 text-center text-gray-400 italic text-xs select-none">
+              {items.length === 0 ? "This folder is empty." : "No items match your search term."}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* High-efficiency structural creators segment */}
-      <div className="bg-[#ede9e2] border-t-2 border-white p-2 flex flex-wrap items-center gap-2">
-        <div className="flex items-center space-x-1.5 w-full sm:w-auto">
+      {/* Simple, Non-bloated Creators Segment at the Bottom */}
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          // Decide creation based on input name endings or default to folder/file button clicks
+        }} 
+        className="bg-gray-50 border-t border-gray-150 p-3 flex flex-wrap items-center gap-2 mt-auto shrink-0"
+      >
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
           <input
             type="text"
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
-            className="px-2 py-1 bg-white border border-t-[#808080] border-l-[#808080] border-r-white border-b-white text-[11px] outline-none text-black font-mono w-full sm:w-56"
-            placeholder="File name or Folder name..."
+            className="px-3 py-1.5 bg-white border border-gray-200 rounded text-xs outline-none text-gray-800 font-mono w-full sm:w-60 focus:border-gray-400"
+            placeholder="Enter file or folder name..."
             maxLength={64}
           />
           <button
-            onClick={handleCreateDirectory}
-            className="px-3 py-1 bg-[#ede9e2] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] active:translate-y-px text-black hover:bg-[#dfdad0] font-bold text-[10.5px] flex items-center space-x-1 cursor-pointer"
+            type="button"
+            onClick={() => handleCreateDirectory()}
+            className="px-3.5 py-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded text-gray-700 font-bold flex items-center space-x-1 cursor-pointer transition-colors"
           >
-            <FolderPlus className="w-3.5 h-3.5 text-yellow-600" />
+            <FolderPlus className="w-4 h-4 text-gray-500" />
             <span>Folder</span>
           </button>
           <button
-            onClick={handleCreateFile}
-            className="px-3 py-1 bg-[#ede9e2] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] active:translate-y-px text-black hover:bg-[#dfdad0] font-bold text-[10.5px] flex items-center space-x-1 cursor-pointer"
+            type="button"
+            onClick={() => handleCreateFile()}
+            className="px-3.5 py-1.5 bg-white border border-gray-200 hover:border-gray-300 rounded text-gray-700 font-bold flex items-center space-x-1 cursor-pointer transition-colors"
           >
-            <Plus className="w-3.5 h-3.5 text-blue-600" />
+            <Plus className="w-4 h-4 text-gray-500" />
             <span>File</span>
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

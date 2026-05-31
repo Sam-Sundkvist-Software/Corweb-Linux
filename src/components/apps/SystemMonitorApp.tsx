@@ -52,32 +52,32 @@ export default function SystemMonitorApp({ syscall }: SystemMonitorAppProps) {
     setMemPercent(calcPercent);
   };
 
-  // Retro fragile HTML-string interpolation logic
-  const renderFragileDiagnosticsHTML = () => {
+  // Diagnostic status information in clean, simple plain English
+  const RenderSystemStatusInformation = () => {
     const curCpu = cpuHistory[cpuHistory.length - 1] || 0;
-    const loadStatus = curCpu > 70 ? "🔥 CONGESTED" : curCpu > 40 ? "⚠️ MODERATE" : "✅ NOMINAL";
-    const statusColor = curCpu > 70 ? "#b91c1c" : curCpu > 40 ? "#b45309" : "#15803d";
-    return `
-      <div class="system-specs-box space-y-1 bg-[#ede9e2] border border-[#a8a49c] p-2.5 rounded-sm shadow-[inset_1px_1px_0_#ffffff]">
-        <span class="font-bold text-slate-800 border-b border-[#bab3a8] pb-1 block uppercase" style="font-size: 10px; font-family: sans-serif;">⚡ SYSTEM RESOURCE COMPILER</span>
-        <div class="space-y-1.5 mt-2 text-[10px]" style="font-family: monospace; line-height: 1.4;">
-          <div><b style="color: #4b5563;">KERNEL STATE:</b> <span style="font-weight: bold; color: ${statusColor};">${loadStatus} (${curCpu}% load)</span></div>
-          <div><b style="color: #4b5563;">VIRTUAL SWAP RAM:</b> <span>${memPercent}% utilization</span></div>
-          <div><b style="color: #4b5563;">ALLOCATED THREADS:</b> <span>${procs.length} active tasks</span></div>
-          <div><b style="color: #4b5563;">KERNEL TICK RATE:</b> <span>${Date.now()} ms</span></div>
+    const loadStatus = curCpu > 70 ? "Busy" : curCpu > 40 ? "Moderate" : "Normal";
+    const statusColor = curCpu > 70 ? "text-red-700" : curCpu > 40 ? "text-amber-700" : "text-emerald-700";
+    return (
+      <>
+        <div className="space-y-1 bg-[#ede9e2] border border-[#a8a49c] p-2.5 rounded shadow-[inset_1px_1px_0_#ffffff]">
+          <span className="font-semibold text-slate-805 border-b border-[#bab3a8] pb-1 block uppercase text-[10px] font-sans">System Overview</span>
+          <div className="space-y-1 mt-2 text-[10px] font-mono leading-relaxed">
+            <div><b className="text-gray-500">Processor load:</b> <span className={`font-bold ${statusColor}`}>{loadStatus} ({curCpu}% average)</span></div>
+            <div><b className="text-gray-500">Memory usage:</b> <span>{memPercent}% allocated</span></div>
+            <div><b className="text-gray-500">Active tasks:</b> <span>{procs.length} running</span></div>
+          </div>
         </div>
-      </div>
-      
-      <div class="system-specs-box space-y-1 bg-[#ede9e2] border border-[#a8a49c] p-2.5 rounded-sm shadow-[inset_1px_1px_0_#ffffff]">
-        <span class="font-bold text-slate-800 border-b border-[#bab3a8] pb-1 block uppercase" style="font-size: 10px; font-family: sans-serif;">📋 DAEMON CONFIG MATRIX</span>
-        <div class="space-y-1.5 mt-2 text-[10px]" style="font-family: monospace; line-height: 1.4;">
-          <div><b style="color: #4b5563;">ACTIVE DEV UNITS:</b> <span>${services.filter(s => s.status === "active").length} services</span></div>
-          <div><b style="color: #4b5563;">SECTOR SWAP CACHE:</b> <span>INDEXED_DB [MAPPED]</span></div>
-          <div><b style="color: #4b5563;">TELEMETRY REFRESH:</b> <span>${new Date().toLocaleTimeString()}</span></div>
-          <div><b style="color: #4b5563;">COMPILER PIPELINE:</b> <span style="color: #1d4ed8; text-decoration: underline;">SILVER_GLAZE_V4</span></div>
+        
+        <div className="space-y-1 bg-[#ede9e2] border border-[#a8a49c] p-2.5 rounded shadow-[inset_1px_1px_0_#ffffff]">
+          <span className="font-semibold text-slate-805 border-b border-[#bab3a8] pb-1 block uppercase text-[10px] font-sans">Services Status</span>
+          <div className="space-y-1 mt-2 text-[10px] font-mono leading-relaxed">
+            <div><b className="text-gray-500">Background services:</b> <span>{services.filter(s => s.status === "active").length} active</span></div>
+            <div><b className="text-gray-500">Virtual disk swap:</b> <span>Enabled</span></div>
+            <div><b className="text-gray-500">Last updated:</b> <span>{new Date().toLocaleTimeString()}</span></div>
+          </div>
         </div>
-      </div>
-    `;
+      </>
+    );
   };
 
   useEffect(() => {
@@ -256,7 +256,7 @@ export default function SystemMonitorApp({ syscall }: SystemMonitorAppProps) {
             {/* RAM Progress Indicator */}
             <div className="border border-white border-b-[#808080] border-r-[#808080] p-2 bg-[#d4d0c8]">
               <div className="flex justify-between font-bold text-[#111] text-[10px] mb-1">
-                <span>SYSTEM RAM CONGESTION</span>
+                <span>SYSTEM MEMORY</span>
                 <span>
                   {Math.floor((memPercent / 100) * 256)} MB / 256 MB (MAX)
                 </span>
@@ -267,16 +267,15 @@ export default function SystemMonitorApp({ syscall }: SystemMonitorAppProps) {
                   style={{ width: `${memPercent}%` }}
                 />
                 <span className="absolute inset-x-0 inset-y-0 text-[10px] font-black font-mono text-center text-white flex items-center justify-center mix-blend-difference">
-                  {memPercent}% PHYS_RAM ALLOC
+                  {memPercent}% RAM Used
                 </span>
               </div>
             </div>
 
-            {/* General environment system statistics details info rendered through raw fragile interpolated HTML */}
-            <div 
-              className="grid grid-cols-2 gap-2 text-[10px]"
-              dangerouslySetInnerHTML={{ __html: renderFragileDiagnosticsHTML() }}
-            />
+            {/* General environment system statistics details info */}
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <RenderSystemStatusInformation />
+            </div>
           </div>
         )}
 
