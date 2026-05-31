@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { WindowInstance } from "../types/os";
 import { Minus, Square, X } from "lucide-react";
+import { useStyleSystem } from "../context/StyleSystemContext";
 
 interface WindowFrameProps {
   win: WindowInstance;
@@ -167,6 +168,10 @@ export default function WindowFrame({
     headerThemeClass = "header-system";
   }
 
+  const { resolvedStyle: windowStyleSystemProps } = useStyleSystem("div", "silver-window", win.id);
+  const { resolvedStyle: headerStyleSystemProps } = useStyleSystem("div", isActive ? "silver-header" : "silver-header-inactive");
+  const { resolvedStyle: buttonStyleSystemProps } = useStyleSystem("button", "silver-btn");
+
   const headerClass = `silver-header ${headerThemeClass} ${isActive ? "" : "silver-header-inactive"}`;
   
   // Dragging should be instant (no transitions during drag/resize)
@@ -182,6 +187,7 @@ export default function WindowFrame({
         width: "100vw",
         height: "calc(100vh - 56px)", // fitting nicely between top and bottom bar
         zIndex: win.zIndex,
+        ...windowStyleSystemProps
       }
     : {
         top: `${win.y}px`,
@@ -189,6 +195,7 @@ export default function WindowFrame({
         width: `${win.width}px`,
         height: `${win.height}px`,
         zIndex: win.zIndex,
+        ...windowStyleSystemProps
       };
 
   if (win.isMinimized) {
@@ -206,6 +213,7 @@ export default function WindowFrame({
       {/* TrashLinux Window Header Panel */}
       <div
         className={headerClass}
+        style={headerStyleSystemProps}
         onMouseDown={handleHeaderMouseDown}
         onDoubleClick={() => onMaximize(win.id)}
       >
@@ -228,6 +236,7 @@ export default function WindowFrame({
               onMinimize(win.id);
             }}
             className="silver-btn"
+            style={buttonStyleSystemProps}
             title="Minimize"
           >
             _
@@ -240,6 +249,7 @@ export default function WindowFrame({
               onMaximize(win.id);
             }}
             className="silver-btn"
+            style={buttonStyleSystemProps}
             title="Maximize"
           >
             □
@@ -252,6 +262,7 @@ export default function WindowFrame({
               onClose(win.id);
             }}
             className="silver-btn silver-btn-close"
+            style={buttonStyleSystemProps}
             title="Close"
           >
             X

@@ -1,8 +1,35 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useWebOS } from "../hooks/useWebOS";
 import WindowFrame from "./WindowFrame";
 import { NodeType, WindowInstance, VFSNode } from "../types/os";
 import { resolveNode } from "../kernel/vfs";
+import { TlnxStyleProvider } from "../context/StyleSystemContext";
+
+function scopeCSS(cssText: string, prefix: string): string {
+  if (!cssText) return "";
+  return cssText
+    .split("}")
+    .map((block) => {
+      const trimmed = block.trim();
+      if (!trimmed) return "";
+      const parts = trimmed.split("{");
+      if (parts.length < 2) return trimmed;
+      const selector = parts[0].trim();
+      const rule = parts[1].trim();
+      if (!selector) return trimmed;
+      // scope nested selectors safely to not ruin outer UI
+      const prefixedSelector = selector
+        .split(",")
+        .map((sel) => {
+          const s = sel.trim();
+          if (s.startsWith("@")) return s;
+          return `${prefix} ${s}`;
+        })
+        .join(", ");
+      return `${prefixedSelector} { ${rule} }`;
+    })
+    .join("\n");
+}
 
 // Apps imports
 import TerminalApp from "./apps/TerminalApp";
@@ -16,7 +43,9 @@ import ImageViewerApp from "./apps/ImageViewerApp";
 import VideoPlayerApp from "./apps/VideoPlayerApp";
 import MusicPlayerApp from "./apps/MusicPlayerApp";
 import DialogApp from "./apps/DialogApp";
-import { ThemeManager } from "./apps/ThemeManager";
+import ThemeManagerApp from "./apps/ThemeManagerApp";
+import AppRegistryApp from "./apps/AppRegistryApp";
+import { DynamicAppRenderer } from "./apps/DynamicAppRenderer";
 
 // Boot Screens imports
 import { DetailedBootScreen, GdmLoginScreen, KernelPanicScreen } from "./BootScreens";
@@ -47,6 +76,38 @@ import {
   Palette
 } from "lucide-react";
 
+const getAppIcon = (iconName?: string) => {
+  switch (iconName) {
+    case "monitor":
+      return <Monitor className="w-3.5 h-3.5" />;
+    case "terminal":
+      return <TermIcon className="w-3.5 h-3.5" />;
+    case "file-text":
+      return <FileText className="w-3.5 h-3.5" />;
+    case "cpu":
+      return <Cpu className="w-3.5 h-3.5" />;
+    case "folder":
+      return <FolderOpen className="w-3.5 h-3.5" />;
+    case "gamepad":
+      return <Gamepad2 className="w-3.5 h-3.5" />;
+    case "globe":
+      return <Globe2 className="w-3.5 h-3.5" />;
+    case "settings":
+      return <SettingsIcon className="w-3.5 h-3.5" />;
+    case "palette":
+      return <Palette className="w-3.5 h-3.5" />;
+    case "image":
+      return <ImageIcon className="w-3.5 h-3.5" />;
+    case "video":
+      return <Video className="w-3.5 h-3.5" />;
+    case "music":
+      return <Music className="w-3.5 h-3.5" />;
+    case "layout":
+    default:
+      return <AppWindow className="w-3.5 h-3.5" />;
+  }
+};
+
 export default function Desktop() {
   const os = useWebOS();
   const [appsMenuOpen, setAppsMenuOpen] = useState(false);
@@ -56,6 +117,14 @@ export default function Desktop() {
   const [currentDate, setCurrentDate] = useState("");
   const [globalCwd, setGlobalCwd] = useState("/home/guest");
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [glitchTicker, setGlitchTicker] = useState(0);
+
+  // Resolve custom wallpapers from system VFS options in settings
+  const liveSettingsObj = (os.kernel ? os.kernel?.getSyscallToken(1).getSettings() : {}) as any;
+  const currentServicesList = os.kernel ? os.kernel?.getSyscallToken(1).getServices() : [];
+  const isDesktopManagerActive = os.kernel ? currentServicesList.find(s => s.name === "desktop-manager.service")?.status !== "inactive" : true;
+  const wallpaperCol1 = isDesktopManagerActive ? (liveSettingsObj?.custom_wallpaper_color_1 || "#1b1e20") : "#0a0a0a";
+  const wallpaperCol2 = isDesktopManagerActive ? (liveSettingsObj?.custom_wallpaper_color_2 || "#2d3235") : "#0a0a0a";
 
   // Stable window-aware custom Syscall interface cache to prevent React hook re-trigger loops
   const syscallsCacheRef = useRef<Record<string, any>>({});
@@ -111,6 +180,26 @@ export default function Desktop() {
     }
   }, [os.currentUser]);
 
+  // Broken or glitched theme dynamic status updates and lag intervals
+  useEffect(() => {
+    if (liveSettingsObj?.current_desktop_theme !== "Broken") return;
+    const interval = setInterval(() => {
+      setGlitchTicker((t) => t + 1);
+    }, 450);
+    return () => clearInterval(interval);
+  }, [liveSettingsObj?.current_desktop_theme]);
+
+  useEffect(() => {
+    if (liveSettingsObj?.current_desktop_theme !== "Broken") return;
+    const lagInterval = setInterval(() => {
+      const start = Date.now();
+      while (Date.now() - start < 150) {
+        // Blocks single-threaded loop execution for 150ms to create genuine system-wide input stagger and lag
+      }
+    }, 1200);
+    return () => clearInterval(lagInterval);
+  }, [liveSettingsObj?.current_desktop_theme]);
+
   // Close menus when clicking desktop wallpaper
   const handleWallpaperClick = () => {
     setAppsMenuOpen(false);
@@ -148,13 +237,6 @@ export default function Desktop() {
     );
   }
 
-  // Resolve custom wallpapers from system VFS options in settings
-  const liveSettingsObj = os.kernel ? os.kernel?.getSyscallToken(1).getSettings() : {};
-  const currentServicesList = os.kernel ? os.kernel?.getSyscallToken(1).getServices() : [];
-  const isDesktopManagerActive = currentServicesList.find(s => s.name === "desktop-manager.service")?.status !== "inactive";
-  const wallpaperCol1 = isDesktopManagerActive ? (liveSettingsObj?.custom_wallpaper_color_1 || "#1b1e20") : "#0a0a0a";
-  const wallpaperCol2 = isDesktopManagerActive ? (liveSettingsObj?.custom_wallpaper_color_2 || "#2d3235") : "#0a0a0a";
-
   // Double click handler for desktop items
   const handleDesktopShortcutDoubleClick = (name: string, type: NodeType) => {
     const user = os.currentUser;
@@ -172,6 +254,36 @@ export default function Desktop() {
       } else if (name.endsWith(".txt")) {
         os.launchApp("leafpadUF", `Leafpad - ${name}`, { content: fullPath });
       } else if (name.endsWith(".desktop")) {
+        // Try to perform dynamic execution from .desktop contents
+        const shortcutNode = os.vfs ? resolveNode(os.vfs, fullPath) : null;
+        if (shortcutNode && shortcutNode.content) {
+          const lines = shortcutNode.content.split("\n");
+          const execLine = lines.find(line => line.startsWith("Exec="));
+          if (execLine) {
+            const execCmd = execLine.substring(5).trim();
+            // Look up corresponding application in our dynamic apps manifest
+            const matchedApp = (os.apps || []).find(app => 
+              app.id.toLowerCase() === execCmd.toLowerCase() ||
+              app.id.toLowerCase().replace(/uf[d]?$/, "") === execCmd.toLowerCase()
+            );
+
+            if (matchedApp) {
+              let opts: any = {};
+              if (matchedApp.id === "terminalUF") opts = { width: 680, height: 460 };
+              else if (matchedApp.id === "themeManagerUF") opts = { width: 520, height: 420 };
+              else if (matchedApp.id === "controlPanelUFD") opts = { width: 780, height: 500 };
+              else if (matchedApp.id === "imageViewerUF") opts = { width: 620, height: 460 };
+              else if (matchedApp.id === "videoPlayerUF") opts = { width: 620, height: 480 };
+              else if (matchedApp.id === "musicPlayerUF") opts = { width: 620, height: 460 };
+              else if (matchedApp.id === "appRegistryUF") opts = { width: 700, height: 500 };
+
+              os.launchApp(matchedApp.id, matchedApp.name, opts);
+              return;
+            }
+          }
+        }
+
+        // Fallback for static safety code
         if (name.includes("Minesweeper")) {
           os.launchApp("minesweeperUF", "Minesweeper Retro");
         } else if (name.includes("Leafpad")) {
@@ -198,43 +310,122 @@ export default function Desktop() {
     }
   };
 
-  // Broken or glitched theme dynamic status updates and lag intervals
-  const [glitchTicker, setGlitchTicker] = useState(0);
-  useEffect(() => {
-    if (liveSettingsObj?.current_desktop_theme !== "Broken") return;
-    const interval = setInterval(() => {
-      setGlitchTicker((t) => t + 1);
-    }, 450);
-    return () => clearInterval(interval);
-  }, [liveSettingsObj?.current_desktop_theme]);
-
-  useEffect(() => {
-    if (liveSettingsObj?.current_desktop_theme !== "Broken") return;
-    const lagInterval = setInterval(() => {
-      const start = Date.now();
-      while (Date.now() - start < 150) {
-        // Blocks single-threaded loop execution for 150ms to create genuine system-wide input stagger and lag
-      }
-    }, 1200);
-    return () => clearInterval(lagInterval);
-  }, [liveSettingsObj?.current_desktop_theme]);
-
   const currentThemeClassName = `tlnx-theme-${String(liveSettingsObj?.current_desktop_theme || "Classic Blue").toLowerCase().replace(/\s+/g, "-")}`;
 
+  // Custom User/System dynamic styling injection to support heavy compositor customizations
+  const userThemeOverrideStyles = (
+    <style id="trashlinux-theme-overrides">{`
+      @layer SystemConfigOverride {
+        /* Set Top Panel Background */
+        .top-panel-main {
+          background: ${liveSettingsObj?.theme_panel_bg || "linear-gradient(to bottom, #fafafa 0%, #cccccc 100%)"} !important;
+        }
+
+        /* Set Custom Window Window background & border radius */
+        .silver-window {
+          background-color: ${liveSettingsObj?.theme_window_bg || "#f0ede6"} !important;
+          border-radius: ${liveSettingsObj?.theme_window_border_radius || "6px"} !important;
+        }
+
+        /* Set Custom Bevel Border Style if specified */
+        ${
+          liveSettingsObj?.window_bevel_style === "flat_minimal"
+            ? `
+            .silver-window {
+              border: 1px solid #71717a !important;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+            }
+            `
+            : liveSettingsObj?.window_bevel_style === "shattered_corrupt"
+            ? `
+            .silver-window {
+              border: 2px dashed #dc2626 !important;
+              box-shadow: 0 12px 30px rgba(120, 0, 0, 0.4) !important;
+              animation: tlnx-anim-screen-vibrate 0.2s infinite alternate;
+            }
+            `
+            : `
+            /* classic_bevel: windows classic 3D border shadows */
+            .silver-window {
+              border: 1px solid #85837d !important;
+              box-shadow: 0 10px 25px rgba(0, 0, 0, 0.28) !important;
+            }
+            `
+        }
+
+        /* Set Header Banner (Active) */
+        .silver-header {
+          background: ${liveSettingsObj?.theme_header_active_bg || "linear-gradient(180deg, #ffffff 0%, #eceae6 20%, #d8d4cd 50%, #c4bfae 100%)"} !important;
+          color: ${liveSettingsObj?.theme_header_active_text || "#1a1e20"} !important;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+          text-shadow: none !important;
+        }
+
+        /* Set Header Banner (Inactive) */
+        .silver-header-inactive {
+          background: ${liveSettingsObj?.theme_header_inactive_bg || "linear-gradient(180deg, #fcfcfc 0%, #e8e8e8 30%, #d1d1d1 70%, #bababa 100%)"} !important;
+          color: ${liveSettingsObj?.theme_header_inactive_text || "#7a766f"} !important;
+          text-shadow: none !important;
+          box-shadow: none !important;
+        }
+
+        /* Set Window Title text coloring */
+        .silver-window-title span {
+          color: ${liveSettingsObj?.theme_header_active_text || "#1a1e20"} !important;
+        }
+
+        .silver-window-inactive .silver-window-title span {
+          color: ${liveSettingsObj?.theme_header_inactive_text || "#7a766f"} !important;
+        }
+
+        /* Scope customized overrides inside wrapper bounds */
+        ${scopeCSS(liveSettingsObj?.custom_css_overrides || "", ".tlnx-desktop-wrapper")}
+      }
+    `}</style>
+  );
+
+  let desktopBackgroundStyle: React.CSSProperties = {};
+  if (!isDesktopManagerActive) {
+    desktopBackgroundStyle = { background: "#0a0a0a" };
+  } else {
+    const wallType = liveSettingsObj?.wallpaper_type || "gradient";
+    if (wallType === "color") {
+      desktopBackgroundStyle = { backgroundColor: liveSettingsObj?.wallpaper_solid_color || "#1b1e20" };
+    } else if (wallType === "image") {
+      const imgUrl = liveSettingsObj?.wallpaper_image_url || "";
+      desktopBackgroundStyle = {
+        backgroundImage: imgUrl ? `url(${imgUrl})` : "none",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundColor: "#1b1e20",
+        backgroundRepeat: "no-repeat"
+      };
+    } else {
+      if (liveSettingsObj?.wallpaper_gradient_css) {
+        desktopBackgroundStyle = { background: liveSettingsObj.wallpaper_gradient_css };
+      } else {
+        desktopBackgroundStyle = {
+          background: `linear-gradient(135deg, ${wallpaperCol1} 0%, ${wallpaperCol2} 100%)`
+        };
+      }
+    }
+  }
+
+  const styleSystemRules = liveSettingsObj?.style_system_rules || {};
+
   return (
-    <div className={`w-screen h-screen flex flex-col overflow-hidden relative select-none bg-[#1a1e20] font-sans text-xs ${currentThemeClassName}`}>
+    <div className={`w-screen h-screen flex flex-col overflow-hidden relative select-none bg-[#1a1e20] font-sans text-xs ${currentThemeClassName} tlnx-desktop-wrapper`}>
+      {userThemeOverrideStyles}
       
-      {/* Immersive UI Wallpaper Gradient configured in Control Panel */}
-      <div
-        className="absolute inset-0 z-0 pointer-events-none transition-all duration-700 opacity-95"
-        style={{
-          background: `linear-gradient(135deg, ${wallpaperCol1} 0%, ${wallpaperCol2} 100%)`,
-          backgroundImage: "radial-gradient(ellipse at center, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0.5) 100%)"
-        }}
-      />
+      <TlnxStyleProvider rules={styleSystemRules}>
+        {/* Immersive UI Wallpaper Gradient configured in Control Panel */}
+        <div
+          className="absolute inset-0 z-0 pointer-events-none transition-all duration-700 opacity-95"
+          style={desktopBackgroundStyle}
+        />
 
       {/* TOP TRASHLINUX PANEL BAR */}
-      <div className="h-7 w-full bg-gradient-to-b from-[#fafafa] via-[#e2e2e2] to-[#cccccc] border-b border-b-[#a0a0a0] flex items-center justify-between px-2 text-[11px] text-black z-50 select-none shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1.5px_3px_rgba(0,0,0,0.15)]">
+      <div className="h-7 w-full top-panel-main bg-gradient-to-b from-[#fafafa] via-[#e2e2e2] to-[#cccccc] border-b border-b-[#a0a0a0] flex items-center justify-between px-2 text-[11px] text-black z-50 select-none shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1.5px_3px_rgba(0,0,0,0.15)]">
         <div className="flex items-center space-x-1">
           {/* Main system branding badge */}
           <div 
@@ -263,127 +454,42 @@ export default function Desktop() {
             </button>
 
             {appsMenuOpen && (
-              <div className="absolute top-[22px] left-0 w-52 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-xl divide-y divide-[#808080]/30 z-50 text-[10.5px]">
-                <button
-                  onClick={() => {
-                    os.launchApp("terminalUF", "Command Terminal", { width: 680, height: 460 });
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
-                >
-                  <TermIcon className="w-3.5 h-3.5 text-slate-800 hover:text-white" />
-                  <span className="font-bold">Command Terminal</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("fileManagerUF", "File Explorer");
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">File Explorer</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("leafpadUF", "Text Editor");
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
-                >
-                  <FileText className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">Text Editor</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("systemMonitorUFD", "System Monitor");
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
-                >
-                  <Cpu className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">System Monitor</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("minesweeperUF", "Minesweeper Game");
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
-                >
-                  <Gamepad2 className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">Minesweeper Game</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("surferUF", "Web Browser");
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
-                >
-                  <Globe2 className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">Web Browser</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("controlPanelUFD", "System Settings", { width: 780, height: 500 });
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
-                >
-                  <SettingsIcon className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">System Settings</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("themeManagerUF", "Theme Configurator", { width: 520, height: 420 });
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black"
-                >
-                  <Palette className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">Theme Configurator</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("imageViewerUF", "Image Viewer", { width: 620, height: 460 });
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/30"
-                >
-                  <ImageIcon className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">Image Viewer</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("videoPlayerUF", "Video Player", { width: 620, height: 480 });
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/30"
-                >
-                  <Video className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">Video Player</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    os.launchApp("musicPlayerUF", "Music Player", { width: 620, height: 460 });
-                    setAppsMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white flex items-center space-x-2 text-black border-t border-[#808080]/30"
-                >
-                  <Music className="w-3.5 h-3.5 text-slate-800" />
-                  <span className="font-bold">Music Player</span>
-                </button>
+              <div className="absolute top-[22px] left-0 w-60 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-xl divide-y divide-[#808080]/30 z-50 text-[10.5px] max-h-96 overflow-y-auto">
+                {(os.apps && os.apps.length > 0 ? os.apps : []).filter(app => app.id !== "desktopEnv").map((app) => (
+                  <button
+                    key={app.id}
+                    onClick={() => {
+                      let opts: any = {};
+                      if (app.id === "terminalUF") {
+                        opts = { width: 680, height: 460 };
+                      } else if (app.id === "themeManagerUF") {
+                        opts = { width: 520, height: 420 };
+                      } else if (app.id === "controlPanelUFD") {
+                        opts = { width: 780, height: 500 };
+                      } else if (app.id === "imageViewerUF") {
+                        opts = { width: 620, height: 460 };
+                      } else if (app.id === "videoPlayerUF") {
+                        opts = { width: 620, height: 480 };
+                      } else if (app.id === "musicPlayerUF") {
+                        opts = { width: 620, height: 460 };
+                      } else if (app.id === "appRegistryUF") {
+                        opts = { width: 700, height: 500 };
+                      }
+                      os.launchApp(app.id, app.name, opts);
+                      setAppsMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-[#002080] hover:text-white flex items-start space-x-2 text-black"
+                    title={`${app.description} (v${app.version} by ${app.author})`}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {getAppIcon(app.icon)}
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="font-bold leading-none">{app.name}</span>
+                      <span className="text-[8.5px] opacity-70 mt-0.5 max-w-[180px] truncate">{app.description}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -671,16 +777,7 @@ export default function Desktop() {
                 <SystemMonitorApp syscall={syscall} />
               )}
               {win.appId === "themeManagerUF" && (
-                <div
-                  ref={(node) => {
-                    if (node) {
-                      node.innerHTML = "";
-                      const { element } = ThemeManager(syscall);
-                      node.appendChild(element);
-                    }
-                  }}
-                  className="w-full h-full bg-[#d4d0c8]"
-                />
+                <ThemeManagerApp syscall={syscall} />
               )}
               {win.appId === "fileManagerUF" && (
                 <FileManagerApp
@@ -692,6 +789,9 @@ export default function Desktop() {
               )}
               {win.appId === "minesweeperUF" && <MinesweeperApp />}
               {win.appId === "surferUF" && <SurferApp syscall={syscall} />}
+              {win.appId === "appRegistryUF" && (
+                <AppRegistryApp syscall={syscall} />
+              )}
               {win.appId === "controlPanelUFD" && <SystemSettingsApp syscall={syscall} />}
               {win.appId === "systemFlagEditorUFD" && <SystemSettingsApp syscall={syscall} />}
               {win.appId === "imageViewerUF" && (
@@ -712,6 +812,25 @@ export default function Desktop() {
                   initialFilePath={win.args && win.args[0] ? win.args[0] : undefined}
                 />
               )}
+              {(() => {
+                const builtInApps = [
+                  "terminalUF", "leafpadUF", "systemMonitorUFD", "themeManagerUF",
+                  "fileManagerUF", "minesweeperUF", "surferUF", "appRegistryUF",
+                  "controlPanelUFD", "imageViewerUF", "videoPlayerUF", "musicPlayerUF"
+                ];
+                if (!builtInApps.includes(win.appId)) {
+                  const matched = (os.apps || []).find((a) => a.id === win.appId || a.id.toLowerCase() === win.appId.toLowerCase());
+                  if (matched && matched.path) {
+                    return (
+                      <DynamicAppRenderer
+                        syscall={syscall}
+                        appInfo={matched}
+                      />
+                    );
+                  }
+                }
+                return null;
+              })()}
             </WindowFrame>
           );
         })}
@@ -828,6 +947,7 @@ export default function Desktop() {
           <div className="absolute top-[40%] right-[35%] w-32 h-16 bg-gradient-to-tr from-purple-900 to-green-950 opacity-40 z-30 pointer-events-none border border-green-500" style={{ animation: "tlnx-anim-screen-vibrate 0.3s infinite" }} />
         </>
       )}
+      </TlnxStyleProvider>
     </div>
   );
 }

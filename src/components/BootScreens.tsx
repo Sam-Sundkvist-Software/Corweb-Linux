@@ -762,79 +762,149 @@ interface KernelPanicScreenProps {
 }
 
 export function KernelPanicScreen({ reason, onReboot }: KernelPanicScreenProps) {
-  // Blinking lock keyboard lights simulation state
   const [ledState, setLedState] = useState(true);
 
   useEffect(() => {
     const int = setInterval(() => {
       setLedState((prev) => !prev);
-    }, 500);
+    }, 400);
     return () => clearInterval(int);
   }, []);
 
+  // Parse the reason and stack trace
+  let primaryReason = reason || "Unknown critical kernel boundary fault.";
+  let stackTrace = "";
+
+  if (reason && reason.includes("STACK_TRACE:")) {
+    const parts = reason.split("STACK_TRACE:");
+    primaryReason = parts[0].trim();
+    stackTrace = parts[1].trim();
+  }
+
+  // If stackTrace wasn't supplied, output a simulated but beautiful stack trace
+  if (!stackTrace) {
+    stackTrace = `Error: System integrity violation at SecureKernel.init
+    at initializeSyscallParameter (secureKernel.ts:634:11)
+    at Object.getSyscallToken (secureKernel.ts:664:14)
+    at Desktop.tsx:288:42
+    at launchApp (useWebOS.tsx:472:25)
+    at HTMLButtonElement.onClick (Desktop.tsx:478:29)
+    at invokeReactEventHandler (react-dom.production.min.js:23:441)
+    at dispatchEvent (react-dom.production.min.js:23:1003)`;
+  }
+
+  // Generate simulated register values
+  const registerDump = `EAX: 0x00FF8C1E  EBX: 0xFF900D8C  ECX: 0x0000003F  EDX: 0x002B4F6D
+ESI: 0x004A92E1  EDI: 0x005E21FA  EBP: 0xFFEF901B  ESP: 0xFFEF9000
+CS: 0x0008  DS: 0x0010  SS: 0x0010  ES: 0x0010  FS: 0x0033  GS: 0x003B
+CR0: 0x80050033  CR2: 0x00103E4A  CR3: 0x00201000  EFLAGS: 0x00010246`;
+
   return (
-    <div className="w-screen h-screen bg-black flex flex-col items-center justify-center font-mono p-8 text-xs text-gray-300 select-all select-none">
+    <div className="w-screen h-screen bg-[#800000] text-[#f7f7f7] font-mono p-6 md:p-12 flex flex-col justify-between select-text overflow-y-auto selection:bg-red-600 selection:text-white z-[9999] absolute inset-0">
       
-      {/* Flashing Lock LED indicator simulation */}
-      <div className="absolute top-4 right-6 flex items-center space-x-3 text-gray-500 font-mono text-[10px] select-none">
-        <span>Flashing Keyboard Hardware LEDs:</span>
-        <div className="flex space-x-2">
-          <span className="flex flex-col items-center">
-            <span className={`w-2.5 h-2.5 rounded-full border border-gray-700 ${ledState ? "bg-[#33ff33]" : "bg-emerald-950"}`} />
-            <span className="text-[8px] mt-0.5 text-gray-600">CAPS</span>
-          </span>
-          <span className="flex flex-col items-center">
-            <span className={`w-2.5 h-2.5 rounded-full border border-gray-700 ${!ledState ? "bg-[#33ff33]" : "bg-emerald-950"}`} />
-            <span className="text-[8px] mt-0.5 text-gray-600">SCROLL</span>
-          </span>
-        </div>
-      </div>
-
-      <div className="w-full max-w-2xl bg-black border-[3px] border-red-600 p-6 shadow-2xl relative text-left">
-        {/* Clay warning line */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-red-600 animate-pulse" />
-
-        <div className="flex items-center space-x-3 text-red-500 border-b border-gray-900 pb-3 mb-4 select-none">
-          <ShieldAlert className="w-8 h-8 animate-bounce text-red-600" />
+      {/* LED indicators simulated overlay */}
+      <div className="flex items-center justify-between border-b-2 border-red-500/50 pb-4 mb-6">
+        <div className="flex items-center space-x-3">
+          <ShieldAlert className="w-8 h-8 text-white animate-bounce shrink-0" />
           <div>
-            <h1 className="text-sm font-black tracking-widest uppercase">*** KERNEL PANIC: CORE THREAD EXCEPTION ***</h1>
-            <p className="text-[9px] text-gray-400 font-normal mt-0.5">Core CPU Exception 0xEF (Kernel Halted - Fatal memory block leak).</p>
+            <h1 className="text-sm md:text-md font-black tracking-widest text-white uppercase">
+              TRASHLINUX FATAL EXCEPTION OCCURRED
+            </h1>
+            <p className="text-[10px] text-red-200 mt-0.5 uppercase tracking-wider font-extrabold">
+              SYSTEM INTEGRITY EXCEPTION // EXCEPTION CODE: 0xDEADBEEF
+            </p>
           </div>
         </div>
 
-        {/* Reason */}
-        <div className="p-3 bg-red-950/20 border border-red-900/40 text-red-400 rounded-none mb-4 selection:bg-red-800 selection:text-white">
-          <span className="font-bold text-[10px] block uppercase text-red-500 mb-0.5 select-none font-mono">Panic Description:</span>
-          <p className="font-mono text-[11px] font-bold leading-5">{reason || "Unknown system failure exception."}</p>
+        <div className="hidden sm:flex items-center space-x-4 text-red-300 text-[10px]">
+          <span>HARDWARE KEYBOARD LEDS:</span>
+          <div className="flex space-x-3 bg-red-950/40 p-1.5 border border-red-800">
+            <span className="flex items-center space-x-1.5">
+              <span className={`w-2.5 h-2.5 rounded-full border border-red-700 ${ledState ? "bg-emerald-400" : "bg-zinc-950"}`} />
+              <span className="text-[9px] font-bold">CAPS</span>
+            </span>
+            <span className="flex items-center space-x-1.5">
+              <span className={`w-2.5 h-2.5 rounded-full border border-red-700 ${!ledState ? "bg-emerald-400" : "bg-zinc-950"}`} />
+              <span className="text-[9px] font-bold">SCROLL</span>
+            </span>
+          </div>
         </div>
+      </div>
 
-        {/* Trace logs */}
-        <p className="text-gray-400 mb-2 font-bold select-none text-[10px] uppercase">Unix Trace Dump Registry logs (VFS audit dump):</p>
-        <div className="bg-[#111] p-3 rounded-none font-mono text-[9px] text-[#00ff0a] leading-4 select-all shadow-inner border border-gray-900 overflow-x-auto">
-          <div>[   0.901552] Call Trace:</div>
-          <div>[   0.901590]   [&lt;c0103de0&gt;] show_stack+0xa0/0xb0</div>
-          <div>[   0.901614]   [&lt;c0105cc5&gt;] panic+0x125/0x240</div>
-          <div>[   0.901642]   [&lt;c0147cb2&gt;] systemBackgroundProcessD_exit+0x72/0x80</div>
-          <div>[   0.901691]   [&lt;c010c71c&gt;] sys_kill+0xac/0x150</div>
-          <div>[   0.901712]   [&lt;c0102b35&gt;] syscall_call+0x7/0xb</div>
-          <div>[   0.901750] Code: 89 d0 e8 e3 a1 fc ff eb 9d 8d b6 00 00 00 00 89 f6 8d bc</div>
-          <div>[   0.901799] &lt;0&gt;Rebooting in 180 seconds ... (hardware safety timer active)</div>
-        </div>
-
-        {/* Actions Button */}
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between border-t border-gray-900 pt-4 gap-4">
-          <p className="text-[10px] text-gray-500 max-w-sm leading-4 select-none">
-            An irreparable memory isolation breach or manual panic drill command was signaled. The filesystem has been safely unmounted. Click below to bypass delay and force a cold hardware loop reboot.
+      <div className="flex-1 space-y-6">
+        <div>
+          <p className="text-[11px] md:text-[12px] leading-relaxed text-red-100 max-w-4xl font-sans">
+            A fatal instruction was executed or a corrupt virtual memory state was encountered inside the secure Ring 0 kernel context line. 
+            Execution has been suspended to prevent page corruption, loss of user VFS files, or unauthorized system state alterations.
           </p>
-          
-          <button
-            onClick={onReboot}
-            className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-none shadow-lg text-xs transition-colors select-none flex items-center justify-center space-x-2 animate-pulse cursor-pointer"
-          >
-            <Power className="w-3.5 h-3.5" />
-            <span>Power Reset Loop</span>
-          </button>
         </div>
+
+        {/* Diagnostic parameters display */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* Main Error */}
+          <div className="bg-red-950/40 border border-red-600 p-4 flex flex-col justify-between">
+            <div>
+              <span className="font-extrabold text-[10px] uppercase text-red-300 block mb-1">
+                Primary Panic Description:
+              </span>
+              <p className="text-[11px] md:text-[12px] font-black text-white leading-relaxed whitespace-pre-line">
+                {primaryReason}
+              </p>
+            </div>
+            <div className="text-[9px] text-red-300 border-t border-red-700/60 pt-3 mt-4">
+              FAULTING MODULE: secureKernel.ts // SYSTEM_CALL_CONDUIT: [int 0x80]
+            </div>
+          </div>
+
+          {/* Processor details */}
+          <div className="bg-red-950/40 border border-red-600 p-4 font-mono text-[9.5px] leading-relaxed">
+            <span className="font-extrabold text-[10px] uppercase text-red-300 block mb-1">
+              Active Virtual Registers Dump:
+            </span>
+            <pre className="whitespace-pre-wrap text-emerald-300 selection:bg-emerald-800 selection:text-white">
+              {registerDump}
+            </pre>
+          </div>
+        </div>
+
+        {/* Backtrace details */}
+        <div>
+          <span className="font-extrabold text-[10.5px] uppercase text-red-300 block mb-1.5">
+            Active Exception Call Backtrace (D3-DUMP):
+          </span>
+          <div className="bg-[#1e0000] border-2 border-red-600 p-4 max-h-48 overflow-y-auto leading-relaxed shadow-inner">
+            <pre className="text-white text-[9px] sm:text-[10px] whitespace-pre-wrap select-text font-mono selection:bg-red-800">
+              {stackTrace}
+            </pre>
+          </div>
+        </div>
+
+        {/* Mitigation procedures */}
+        <div className="bg-red-950/20 p-4 border border-red-800/40 text-[10.5px] leading-relaxed text-red-100 font-sans">
+          <p className="font-bold font-mono text-red-300 uppercase mb-1.5">Standard Recovery Procedures:</p>
+          <ul className="list-decimal pl-5 space-y-1">
+            <li>Check file permissions within <span className="font-bold underline">/etc/sysconfig.json</span> and recover lost parameters.</li>
+            <li>Maintain memory allocation buffers using the <span className="font-bold">App Registry Manager</span> or clear leak vectors.</li>
+            <li>In case of recurring panics, use the terminal <span className="font-bold font-mono">panic</span> trigger parameters to analyze syscall boundaries.</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Shutdown action controls */}
+      <div className="border-t-2 border-red-500/50 pt-5 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p className="text-[9px] text-red-300 max-w-xl leading-relaxed text-center sm:text-left select-none font-sans uppercase font-bold">
+          If this is the first time you are seeing this layout screen, press the reboot trigger button. 
+          The local volume storage (VFS) cache is stored securely in memory and committed on graceful restarts.
+        </p>
+
+        <button
+          onClick={onReboot}
+          className="w-full sm:w-auto px-6 py-3 bg-white text-red-800 font-black hover:bg-red-100 transition-colors uppercase border-2 border-transparent hover:border-red-600 flex items-center justify-center space-x-2 animate-pulse cursor-pointer shadow-lg"
+        >
+          <Power className="w-4 h-4 text-red-800 animate-spin" />
+          <span>Cold System Reboot</span>
+        </button>
       </div>
     </div>
   );

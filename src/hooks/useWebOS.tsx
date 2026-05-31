@@ -1,10 +1,166 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { NodeType, Process, WindowInstance, DaemonService, ProcessState, VFSNode, DialogInstance } from "../types/os";
+import { NodeType, Process, WindowInstance, DaemonService, ProcessState, VFSNode, DialogInstance, AppInfo } from "../types/os";
 import * as Kernels from "../kernel/secureKernel";
 import { KernelInstance } from "../kernel/secureKernel";
-import { loadVFSFromDisk, resolveNode } from "../kernel/vfs";
+import { loadVFSFromDisk, resolveNode, writeVFSFile, saveVFSToDisk } from "../kernel/vfs";
 
 let globalKernel: KernelInstance | null = null;
+
+const fallbackApps: AppInfo[] = [
+  {
+    id: "desktopEnv",
+    name: "Desktop Environment",
+    description: "Core window supervisor, start panels, shortcuts, and global skeuomorphic context managers",
+    version: "1.0.0",
+    dependencies: ["Kernel", "syslog.service"],
+    author: "TrashLinux Core Development Group",
+    path: "/bin/desktop",
+    pathType: "internal"
+  },
+  {
+    id: "terminalUF",
+    name: "Command Terminal",
+    description: "Terminal shell with standard command emulation, process spawners, and local environment bindings",
+    version: "1.0.0",
+    dependencies: ["VFS"],
+    author: "GNU Terminal Project",
+    icon: "terminal",
+    path: "/bin/terminal",
+    pathType: "internal"
+  },
+  {
+    id: "fileManagerUF",
+    name: "File Explorer",
+    description: "File tree navigation suite and visual disk explorer",
+    version: "1.0.0",
+    dependencies: ["VFS"],
+    author: "Nautilus File Manager Group",
+    icon: "folder",
+    path: "/bin/filemanager",
+    pathType: "internal"
+  },
+  {
+    id: "leafpadUF",
+    name: "Text Editor",
+    description: "Lightweight, distraction-free document writer and editor",
+    version: "1.0.0",
+    dependencies: ["VFS"],
+    author: "LXDE Group",
+    icon: "file-text",
+    path: "/bin/leafpad",
+    pathType: "internal"
+  },
+  {
+    id: "systemMonitorUFD",
+    name: "System Monitor",
+    description: "Process monitor, daemon service status manager, and threat control console",
+    version: "1.0.0",
+    dependencies: ["Kernel"],
+    author: "Sysinternals Logging Division",
+    icon: "cpu",
+    path: "/bin/sysmonitor",
+    pathType: "internal"
+  },
+  {
+    id: "minesweeperUF",
+    name: "Minesweeper Game",
+    description: "Classic retro logic puzzle board game with customizable grids",
+    version: "1.0.0",
+    dependencies: [],
+    author: "Retro Classics Inc",
+    icon: "gamepad",
+    path: "/bin/minesweeper",
+    pathType: "internal"
+  },
+  {
+    id: "surferUF",
+    name: "Web Browser",
+    description: "Text-based HTML visualizer and DNS lookup client",
+    version: "1.0.0",
+    dependencies: ["syslog.service"],
+    author: "CERN Hackers Group",
+    icon: "globe",
+    path: "/bin/browser",
+    pathType: "internal"
+  },
+  {
+    id: "controlPanelUFD",
+    name: "System Settings",
+    description: "Users account administrator and general configuration flags setup",
+    version: "1.0.0",
+    dependencies: ["Kernel"],
+    author: "TrashLinux Admin Foundation",
+    icon: "settings",
+    path: "/bin/settings",
+    pathType: "internal"
+  },
+  {
+    id: "themeManagerUF",
+    name: "Theme Configurator",
+    description: "Visual customizer for skeuomorphic borders, solid/gradient desktop wallpapers, custom CSS code injections, and system-wide CSS selectors rules engine",
+    version: "1.0.0",
+    dependencies: ["VFS"],
+    author: "XFCE Customization Labs",
+    icon: "palette",
+    path: "/bin/theme",
+    pathType: "internal"
+  },
+  {
+    id: "imageViewerUF",
+    name: "Image Viewer",
+    description: "A fast layout graphic browser supporting simple images and canvas pixels",
+    version: "1.0.0",
+    dependencies: ["VFS"],
+    author: "GNOME Media Developers",
+    icon: "image",
+    path: "/bin/imageview",
+    pathType: "internal"
+  },
+  {
+    id: "videoPlayerUF",
+    name: "Video Player",
+    description: "Visual stream media window rendering offline files and logs",
+    version: "1.0.0",
+    dependencies: ["VFS"],
+    author: "VideoLAN Team",
+    icon: "video",
+    path: "/bin/videoplay",
+    pathType: "internal"
+  },
+  {
+    id: "musicPlayerUF",
+    name: "Music Player",
+    description: "Audio playlist utility to play music streams and tracks in retro skins",
+    version: "1.0.0",
+    dependencies: ["VFS"],
+    author: "XMMS Music Player Group",
+    icon: "music",
+    path: "/bin/musicplay",
+    pathType: "internal"
+  },
+  {
+    id: "appRegistryUF",
+    name: "App Registry Manager",
+    description: "Administrative console to dynamic app registry configurations, dependencies, authors, and version bumps",
+    version: "1.0.0",
+    dependencies: ["VFS"],
+    author: "System Registry Software Foundation",
+    icon: "layout",
+    path: "/bin/appreg",
+    pathType: "internal"
+  },
+  {
+    id: "myCustomApp",
+    name: "Dynamic Custom App",
+    description: "Live compiled TSX application loaded from the VFS registry space",
+    version: "1.0.0",
+    dependencies: ["VFS"],
+    author: "guest",
+    icon: "layout",
+    path: "/home/guest/custom_app.tsx",
+    pathType: "internal"
+  }
+];
 
 export const useWebOS = () => {
   const [isBooting, setIsBooting] = useState<boolean>(true);
@@ -14,10 +170,34 @@ export const useWebOS = () => {
   const [windows, setWindows] = useState<WindowInstance[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [currentCwd, setCurrentCwd] = useState<string>("/home/guest");
+  const [apps, setApps] = useState<AppInfo[]>(fallbackApps);
   const dialogs = windows.filter(w => w.appId === "dialogUF" && w.dialogData).map(w => w.dialogData!) as DialogInstance[];
+
+  const loadAppRegistry = useCallback((currentVFS: VFSNode | null) => {
+    if (!currentVFS) return;
+    try {
+      const registryNode = resolveNode(currentVFS, "/etc/customAppRegistry.json");
+      if (registryNode && registryNode.content) {
+        const parsed = JSON.parse(registryNode.content);
+        if (Array.isArray(parsed)) {
+          setApps(parsed);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to parse VFS custom app registry, using fallback:", err);
+    }
+  }, []);
+
+  // Update apps array when vfs of the hook alters
+  useEffect(() => {
+    if (vfs) {
+      loadAppRegistry(vfs);
+    }
+  }, [vfs, loadAppRegistry]);
   
   // Interactive FOB Boot Loader states
-  const [bootLoaderPhase, setBootLoaderPhase] = useState<"loader" | "booting" | "none">("loader");
+  const [bootLoaderPhase, setBootLoaderPhase] = useState<"loader" | "booting" | "none">("booting");
   const [availableKernels, setAvailableKernels] = useState<{ id: string; name: string; entry: string; version: string }[]>([]);
   const [selectedKernelId, setSelectedKernelId] = useState<string>("secure");
   
@@ -64,9 +244,7 @@ export const useWebOS = () => {
       setVFS(rootVFS);
       
       let kernelsList = [
-        { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" },
-        { id: "xsi", name: "XSI Advanced Isolation Kernel", entry: "createXsiKernel", version: "2.8.2-xsi-386" },
-        { id: "fob", name: "FOB Minimal Core Kernel", entry: "createFobKernel", version: "1.0.0-fob-core" }
+        { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" }
       ];
       let defaultId = "secure";
       
@@ -143,6 +321,105 @@ export const useWebOS = () => {
 
       // Load File System
       const rootVFS = await loadVFSFromDisk();
+
+      // Check if configured
+      let isConfigured = false;
+      let sysconfigParsed: any = null;
+      try {
+        const sysconfigNode = resolveNode(rootVFS, "/etc/sysconfig.json");
+        if (sysconfigNode && sysconfigNode.content) {
+          sysconfigParsed = JSON.parse(sysconfigNode.content);
+          if (sysconfigParsed && sysconfigParsed.is_configured === true) {
+            isConfigured = true;
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to check system configuration flag on load", err);
+      }
+
+      if (!isConfigured) {
+        await addLog("[ >>> ] ========================================================", 15);
+        await addLog("[ >>> ] FIRST-BOOT DETECTED: TRASHLINUX INSTALL SEQUENCE STARTED", 25);
+        await addLog("[ >>> ] ========================================================", 15);
+        await addLog("[ >>> ] [INSTALLER] Initializing persistent physical block device /dev/idb0...", 30);
+        await addLog("[ >>> ] [INSTALLER] Formatting EXT3 journaling structure on root mount...", 30);
+        await addLog("[ >>> ] [INSTALLER] Slicing swap blocks and optimizing paging files...", 20);
+        await addLog("[ >>> ] [INSTALLER] Rebuilding essential folder trees for system users...", 20);
+
+        const defaultSettings = sysconfigParsed || {
+          hostname: "tux-dapper-2006",
+          dns_primary: "8.8.8.8",
+          networking_enabled: true,
+          system_sound: true,
+          wallpaper_style: "Classic Blue",
+          custom_wallpaper_color_1: "#2b5c8f",
+          custom_wallpaper_color_2: "#5086c1",
+          syslog_verbosity: "INFO",
+          allow_regular_user_system_writes: false,
+          restrict_process_kill: true,
+          allow_guest_terminal: true,
+          simulated_cpu_threads: 4,
+          show_welcome_tip: true,
+          system_locked: false,
+          kernel_panic_on_missing_sysconfig: true,
+          kernel_panic_flag: false
+        };
+        const updatedSettings = {
+          ...defaultSettings,
+          is_configured: true
+        };
+        writeVFSFile(rootVFS, "/etc/sysconfig.json", JSON.stringify(updatedSettings, null, 2));
+        await addLog("[ >>> ] [INSTALLER] Configured sysconfig file with standard policies.", 20);
+
+        // Populate customAppRegistry.json
+        writeVFSFile(rootVFS, "/etc/customAppRegistry.json", JSON.stringify(fallbackApps, null, 2));
+        await addLog("[ >>> ] [INSTALLER] Extracted core binary packages to actual registry...", 30);
+
+        await saveVFSToDisk(rootVFS);
+        await addLog("[ >>> ] [INSTALLER] Synchronized volume sectors and persisted VFS cleanly.", 40);
+        await addLog("[ >>> ] ========================================================", 15);
+        await addLog("[ >>> ] OUT-OF-BOX INSTALL COMPLETED SUCCESSFUL - HARDWARE BOOT CONTINUING", 25);
+        await addLog("[ >>> ] ========================================================", 15);
+      }
+
+      // Synchronize internal app registry to the actual app registry on boot
+      try {
+        let currentApps: AppInfo[] = [];
+        const registryNode = resolveNode(rootVFS, "/etc/customAppRegistry.json");
+        if (registryNode && registryNode.content) {
+          try {
+            const parsed = JSON.parse(registryNode.content);
+            if (Array.isArray(parsed)) {
+              currentApps = parsed;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        // Merge fallbackApps with currentApps to synchronize, keeping user's custom apps
+        const fallbackMap = new Map(fallbackApps.map(app => [app.id, app]));
+        const mergedApps: AppInfo[] = [];
+
+        // 1. Add all from fallbackApps (built-ins) to ensure correct codes, icons, path, and pathType
+        for (const fbApp of fallbackApps) {
+          mergedApps.push(fbApp);
+        }
+
+        // 2. Add any custom apps defined by the user that aren't in fallbackApps
+        for (const currApp of currentApps) {
+          if (!fallbackMap.has(currApp.id)) {
+            mergedApps.push(currApp);
+          }
+        }
+
+        // Write and persist change to Disk
+        writeVFSFile(rootVFS, "/etc/customAppRegistry.json", JSON.stringify(mergedApps, null, 2));
+        await saveVFSToDisk(rootVFS);
+      } catch (err) {
+        console.error("Failed to synchronize app registry on boot:", err);
+      }
+
       if (!globalKernel) {
         if (typeof kernelCreator === "function") {
           globalKernel = kernelCreator(rootVFS);
@@ -318,7 +595,7 @@ export const useWebOS = () => {
       setWindows((prev) =>
         prev.map((w) =>
           w.appId === appId
-            ? { ...w, isMinimized: false, zIndex: Math.max(...prev.map((x) => x.zIndex), 0) + 1, args: options?.args || w.args, cwd: options?.cwd || w.cwd }
+            ? { ...w, isMinimized: false, zIndex: Math.max(...prev.filter((x) => x.appId !== "dialogUF").map((x) => x.zIndex), 0) + 1, args: options?.args || w.args, cwd: options?.cwd || w.cwd }
             : w
         )
       );
@@ -349,7 +626,7 @@ export const useWebOS = () => {
       height,
       isMaximized: false,
       isMinimized: false,
-      zIndex: Math.max(...windows.map((w) => w.zIndex), 0) + 1,
+      zIndex: Math.max(...windows.filter((w) => w.appId !== "dialogUF").map((w) => w.zIndex), 0) + 1,
       args,
       cwd: parentCwd,
     };
@@ -422,7 +699,7 @@ export const useWebOS = () => {
       height,
       isMaximized: false,
       isMinimized: false,
-      zIndex: 99999,
+      zIndex: Math.max(...windows.map((w) => w.zIndex), 100000) + 1,
       parentWindowId: ownerWindowId,
       dialogData,
     };
@@ -463,13 +740,48 @@ export const useWebOS = () => {
 
   const focusWindow = useCallback((windowId: string) => {
     setWindows((prev) => {
-      const maxZ = Math.max(...prev.map((w) => w.zIndex), 0);
-      return prev.map((w) =>
-        w.id === windowId ? { ...w, isMinimized: false, zIndex: maxZ + 1 } : w
-      );
+      const nonDialogWins = prev.filter((w) => w.appId !== "dialogUF");
+      const maxNormalZ = Math.max(...nonDialogWins.map((w) => w.zIndex), 0);
+      
+      const targetWin = prev.find((w) => w.id === windowId);
+      if (!targetWin) return prev;
+
+      const isDialog = targetWin.appId === "dialogUF";
+      
+      // Let's check if there is an active child dialog for this window
+      const childDialog = prev.find((w) => w.appId === "dialogUF" && w.parentWindowId === windowId);
+
+      const parentNewZ = maxNormalZ + 1;
+      const childDialogNewZ = parentNewZ + 90000;
+
+      return prev.map((w) => {
+        if (w.id === windowId) {
+          if (isDialog) {
+            const overallMaxZ = Math.max(...prev.map((x) => x.zIndex), 0);
+            return { ...w, isMinimized: false, zIndex: Math.max(100000, overallMaxZ + 1) };
+          } else {
+            return { ...w, isMinimized: false, zIndex: parentNewZ };
+          }
+        }
+        // If this is the active child dialog, bring it even further front than parent
+        if (childDialog && w.id === childDialog.id) {
+          return { ...w, isMinimized: false, zIndex: childDialogNewZ };
+        }
+        return w;
+      });
     });
-    setActiveWindowId(windowId);
-  }, []);
+
+    // Auto-focus the child dialog if one is present on the focused window
+    setWindows((prev) => {
+      const childDialog = prev.find((w) => w.appId === "dialogUF" && w.parentWindowId === windowId);
+      if (childDialog) {
+        setActiveWindowId(childDialog.id);
+      } else {
+        setActiveWindowId(windowId);
+      }
+      return prev;
+    });
+  }, [setActiveWindowId]);
 
   const updateWindowPosition = useCallback((windowId: string, x: number, y: number) => {
     setWindows((prev) =>
@@ -866,6 +1178,7 @@ export const useWebOS = () => {
     getSyslogs: () => (kernelRef.current ? kernelRef.current.getSyslogs() : []),
     kernel: kernelRef.current,
     testAuthentication: () => kernelRef.current ? kernelRef.current.testAuthentication() : [],
+    apps,
     
     // FOB Boot Loader options
     bootLoaderPhase,

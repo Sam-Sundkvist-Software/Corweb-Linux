@@ -13,6 +13,18 @@ export interface OSUser {
   avatar: string;
 }
 
+export interface AppInfo {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  dependencies: string[];
+  author: string;
+  icon?: string;
+  path?: string;
+  pathType?: "web" | "internal";
+}
+
 export interface SystemSettings {
   hostname?: string;
   networking_enabled?: boolean;

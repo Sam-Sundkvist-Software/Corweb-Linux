@@ -87,11 +87,120 @@ Log in as 'root' for total CPU world domination.
             content: JSON.stringify({
               default: "createSecureKernel",
               kernels: [
-                { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" },
-                { id: "xsi", name: "XSI Advanced Isolation Kernel", entry: "createXsiKernel", version: "2.8.2-xsi-386" },
-                { id: "fob", name: "FOB Minimal Core Kernel", entry: "createFobKernel", version: "1.0.0-fob-core" }
+                { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" }
               ]
             }, null, 2)
+          },
+          "customAppRegistry.json": {
+            name: "customAppRegistry.json",
+            type: NodeType.FILE,
+            createdAt: Date.now(),
+            content: JSON.stringify([
+              {
+                id: "desktopEnv",
+                name: "Desktop Environment",
+                description: "Core window supervisor, start panels, shortcuts, and global skeuomorphic context managers",
+                version: "1.0.0",
+                dependencies: ["Kernel", "syslog.service"],
+                author: "TrashLinux Core Development Group"
+              },
+              {
+                id: "terminalUF",
+                name: "Command Terminal",
+                description: "Terminal shell with standard command emulation, process spawners, and local environment bindings",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "GNU Terminal Project"
+              },
+              {
+                id: "fileManagerUF",
+                name: "File Explorer",
+                description: "File tree navigation suite and visual disk explorer",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "Nautilus File Manager Group"
+              },
+              {
+                id: "leafpadUF",
+                name: "Text Editor",
+                description: "Lightweight, distraction-free document writer and editor",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "LXDE Group"
+              },
+              {
+                id: "systemMonitorUFD",
+                name: "System Monitor",
+                description: "Process monitor, daemon service status manager, and threat control console",
+                version: "1.0.0",
+                dependencies: ["Kernel"],
+                author: "Sysinternals Logging Division"
+              },
+              {
+                id: "minesweeperUF",
+                name: "Minesweeper Game",
+                description: "Classic retro logic puzzle board game with customizable grids",
+                version: "1.0.0",
+                dependencies: [],
+                author: "Retro Classics Inc"
+              },
+              {
+                id: "surferUF",
+                name: "Web Browser",
+                description: "Text-based HTML visualizer and DNS lookup client",
+                version: "1.0.0",
+                dependencies: ["syslog.service"],
+                author: "CERN Hackers Group"
+              },
+              {
+                id: "controlPanelUFD",
+                name: "System Settings",
+                description: "Users account administrator and general configuration flags setup",
+                version: "1.0.0",
+                dependencies: ["Kernel"],
+                author: "TrashLinux Admin Foundation"
+              },
+              {
+                id: "themeManagerUF",
+                name: "Theme Configurator",
+                description: "Visual customizer for skeuomorphic borders, solid/gradient desktop wallpapers, custom CSS code injections, and system-wide CSS selectors rules engine",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "XFCE Customization Labs"
+              },
+              {
+                id: "imageViewerUF",
+                name: "Image Viewer",
+                description: "A fast layout graphic browser supporting simple images and canvas pixels",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "GNOME Media Developers"
+              },
+              {
+                id: "videoPlayerUF",
+                name: "Video Player",
+                description: "Visual stream media window rendering offline files and logs",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "VideoLAN Team"
+              },
+              {
+                id: "musicPlayerUF",
+                name: "Music Player",
+                description: "Audio playlist utility to play music streams and tracks in retro skins",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "XMMS Music Player Group"
+              },
+              {
+                id: "appRegistryUF",
+                name: "App Registry Manager",
+                description: "Administrative console to dynamic app registry configurations, dependencies, authors, and version bumps",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "System Registry Software Foundation"
+              }
+            ], null, 2)
           },
         },
       },

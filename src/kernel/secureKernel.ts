@@ -52,9 +52,7 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
       const defaultBootAid = {
         default: "createSecureKernel",
         kernels: [
-          { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" },
-          { id: "xsi", name: "XSI Advanced Isolation Kernel", entry: "createXsiKernel", version: "2.8.2-xsi-386" },
-          { id: "fob", name: "FOB Minimal Core Kernel", entry: "createFobKernel", version: "1.0.0-fob-core" }
+          { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" }
         ]
       };
       const bootaidNode = resolveNode(vfsRoot, "/etc/bootaid.json");
@@ -121,6 +119,173 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
           JSON.parse(configNode.content);
         } catch {
           writeVFSFile(vfsRoot, "/etc/sysconfig.json", JSON.stringify(defaultSettings, null, 2));
+        }
+      }
+
+      // Ensure /etc/customAppRegistry.json exists
+      const registryNode = resolveNode(vfsRoot, "/etc/customAppRegistry.json");
+      const defaultApps = [
+        {
+          id: "desktopEnv",
+          name: "Desktop Environment",
+          description: "Core window supervisor, start panels, shortcuts, and global skeuomorphic context managers",
+          version: "1.0.0",
+          dependencies: ["Kernel", "syslog.service"],
+          author: "TrashLinux Core Development Group",
+          path: "/bin/desktop",
+          pathType: "internal"
+        },
+        {
+          id: "terminalUF",
+          name: "Command Terminal",
+          description: "Terminal shell with standard command emulation, process spawners, and local environment bindings",
+          version: "1.0.0",
+          dependencies: ["VFS"],
+          author: "GNU Terminal Project",
+          icon: "terminal",
+          path: "/bin/terminal",
+          pathType: "internal"
+        },
+        {
+          id: "fileManagerUF",
+          name: "File Explorer",
+          description: "File tree navigation suite and visual disk explorer",
+          version: "1.0.0",
+          dependencies: ["VFS"],
+          author: "Nautilus File Manager Group",
+          icon: "folder",
+          path: "/bin/filemanager",
+          pathType: "internal"
+        },
+        {
+          id: "leafpadUF",
+          name: "Text Editor",
+          description: "Lightweight, distraction-free document writer and editor",
+          version: "1.0.0",
+          dependencies: ["VFS"],
+          author: "LXDE Group",
+          icon: "file-text",
+          path: "/bin/leafpad",
+          pathType: "internal"
+        },
+        {
+          id: "systemMonitorUFD",
+          name: "System Monitor",
+          description: "Process monitor, daemon service status manager, and threat control console",
+          version: "1.0.0",
+          dependencies: ["Kernel"],
+          author: "Sysinternals Logging Division",
+          icon: "cpu",
+          path: "/bin/sysmonitor",
+          pathType: "internal"
+        },
+        {
+          id: "minesweeperUF",
+          name: "Minesweeper Game",
+          description: "Classic retro logic puzzle board game with customizable grids",
+          version: "1.0.0",
+          dependencies: [],
+          author: "Retro Classics Inc",
+          icon: "gamepad",
+          path: "/bin/minesweeper",
+          pathType: "internal"
+        },
+        {
+          id: "surferUF",
+          name: "Web Browser",
+          description: "Text-based HTML visualizer and DNS lookup client",
+          version: "1.0.0",
+          dependencies: ["syslog.service"],
+          author: "CERN Hackers Group",
+          icon: "globe",
+          path: "/bin/browser",
+          pathType: "internal"
+        },
+        {
+          id: "controlPanelUFD",
+          name: "System Settings",
+          description: "Users account administrator and general configuration flags setup",
+          version: "1.0.0",
+          dependencies: ["Kernel"],
+          author: "TrashLinux Admin Foundation",
+          icon: "settings",
+          path: "/bin/settings",
+          pathType: "internal"
+        },
+        {
+          id: "themeManagerUF",
+          name: "Theme Configurator",
+          description: "Visual customizer for skeuomorphic borders, solid/gradient desktop wallpapers, custom CSS code injections, and system-wide CSS selectors rules engine",
+          version: "1.0.0",
+          dependencies: ["VFS"],
+          author: "XFCE Customization Labs",
+          icon: "palette",
+          path: "/bin/theme",
+          pathType: "internal"
+        },
+        {
+          id: "imageViewerUF",
+          name: "Image Viewer",
+          description: "A fast layout graphic browser supporting simple images and canvas pixels",
+          version: "1.0.0",
+          dependencies: ["VFS"],
+          author: "GNOME Media Developers",
+          icon: "image",
+          path: "/bin/imageview",
+          pathType: "internal"
+        },
+        {
+          id: "videoPlayerUF",
+          name: "Video Player",
+          description: "Visual stream media window rendering offline files and logs",
+          version: "1.0.0",
+          dependencies: ["VFS"],
+          author: "VideoLAN Team",
+          icon: "video",
+          path: "/bin/videoplay",
+          pathType: "internal"
+        },
+        {
+          id: "musicPlayerUF",
+          name: "Music Player",
+          description: "Audio playlist utility to play music streams and tracks in retro skins",
+          version: "1.0.0",
+          dependencies: ["VFS"],
+          author: "XMMS Music Player Group",
+          icon: "music",
+          path: "/bin/musicplay",
+          pathType: "internal"
+        },
+        {
+          id: "appRegistryUF",
+          name: "App Registry Manager",
+          description: "Administrative console to dynamic app registry configurations, dependencies, authors, and version bumps",
+          version: "1.0.0",
+          dependencies: ["VFS"],
+          author: "System Registry Software Foundation",
+          icon: "layout",
+          path: "/bin/appreg",
+          pathType: "internal"
+        },
+        {
+          id: "myCustomApp",
+          name: "Dynamic Custom App",
+          description: "Live compiled TSX application loaded from the VFS registry space",
+          version: "1.0.0",
+          dependencies: ["VFS"],
+          author: "guest",
+          icon: "layout",
+          path: "/home/guest/custom_app.tsx",
+          pathType: "internal"
+        }
+      ];
+      if (!registryNode || !registryNode.content) {
+        writeVFSFile(vfsRoot, "/etc/customAppRegistry.json", JSON.stringify(defaultApps, null, 2));
+      } else {
+        try {
+          JSON.parse(registryNode.content);
+        } catch {
+          writeVFSFile(vfsRoot, "/etc/customAppRegistry.json", JSON.stringify(defaultApps, null, 2));
         }
       }
 
@@ -248,14 +413,18 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
     return false;
   };
 
-  const triggerPanic = (reason: string) => {
+  const triggerPanic = (reason: string, customStack?: string) => {
     if (kernelPanicState) return;
     kernelPanicState = true;
-    kernelPanicMessage = reason;
+    
+    // Auto-generate a detailed virtual backtrace if none provided
+    const stack = customStack || new Error("Kernel Backtrace Generated").stack || "No stack trace trace buffer recorded.";
+    kernelPanicMessage = `${reason}\n\nSTACK_TRACE:\n${stack}`;
     syslogdEnabled = true; // Force-enable log streams for post-mortem dump
     writeSyslog(`[CRITICAL PANIC] ${reason}`);
+    writeSyslog(`[BACKTRACE] ${stack}`);
     saveVFSToDisk(vfsRoot); // Try flush VFS
-    panicListeners.forEach((l) => l(reason));
+    panicListeners.forEach((l) => l(kernelPanicMessage));
   };
 
   // Base processes list
@@ -263,6 +432,20 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
     if (kernelPanicState) {
       throw new Error("System execution prohibited: Kernel is in a panicked state.");
     }
+
+    // Parameters type integrity validation checks
+    if (typeof name !== "string" || name.trim() === "") {
+      const err = new Error("Invalid pid parameters: Process name must be a non-empty string descriptor.");
+      triggerPanic("Kernel Panic: SysCall bootProcess param initialization failed. Empty or corrupt name descriptor.", err.stack);
+      throw err;
+    }
+
+    if (cwd && (typeof cwd !== "string" || !cwd.startsWith("/") || cwd.includes("//") || cwd.includes("/../"))) {
+      const err = new Error("Invalid pid parameters: Malformed, relative, or directory-traversed CWD path.");
+      triggerPanic(`Kernel Panic: Syscall bootProcess CWD validation exception for process '${name}': '${cwd}'`, err.stack);
+      throw err;
+    }
+
     const pid = nextPid++;
     
     // Store systemInitPid when systemBackgroundProcessD boots
@@ -485,9 +668,33 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
 
   // SECURE CONTEXT SPECIFIC TOKENS
   const getSyscallToken = (pid: number): SystemCallInterface => {
-    const proc = activeProcesses.get(pid);
+    // Validate PID bounds and values for process validation checks
+    if (isNaN(pid) || pid < 0 || pid > 99999) {
+      triggerPanic(`Kernel Panic: SysCall param initialization failure. Corrupt Process Identifier (PID: ${pid}) received by kernel interrupt lines. General protection fault (GPF) at ring 0.`);
+      throw new Error(`Kernel failed to initialize SysCall parameters. Corrupt PID: ${pid}`);
+    }
+
+    let proc = activeProcesses.get(pid);
     if (!proc) {
-      throw new Error(`Kernel failed to initialize SysCall parameters. Process context missing for PID: ${pid}`);
+      if (pid === 99) {
+        // Allocate on-the-fly dummy wrapper context for background queries
+        const dummyProc: Process = {
+          pid: 99,
+          name: "sys_query_wrapper",
+          state: ProcessState.RUNNING,
+          owner: "root",
+          memoryUsage: 2048,
+          cpuUsage: 0,
+          logs: [],
+          startTime: Date.now(),
+          isBackground: true
+        };
+        activeProcesses.set(99, dummyProc);
+        proc = dummyProc;
+      } else {
+        triggerPanic(`Kernel Panic: Failed to initialize SysCall parameters. Virtual Process Control Block (PCB) is truncated, unallocated, or corrupted for Active PID: ${pid}. Instruction Pointer (EIP) contains invalid stack alignment. System execution halted.`);
+        throw new Error(`Kernel failed to initialize SysCall parameters. Process context missing for PID: ${pid}`);
+      }
     }
 
     // Direct helper to query `/etc/sysconfig.json` on the filesystem
