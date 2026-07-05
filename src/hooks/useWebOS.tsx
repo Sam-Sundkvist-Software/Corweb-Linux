@@ -6,6 +6,9 @@ import { loadVFSFromDisk, resolveNode, writeVFSFile, saveVFSToDisk } from "../ke
 
 let globalKernel: KernelInstance | null = null;
 
+const systemAppIds = new Set(["controlPanelUFD", "appRegistryUF", "systemMonitorUFD", "themeManagerUF"]);
+const isSystemApp = (appId: string) => systemAppIds.has(appId);
+
 const fallbackApps: AppInfo[] = [
   {
     id: "desktopEnv",
@@ -590,50 +593,73 @@ export const useWebOS = () => {
   const launchApp = useCallback((appId: string, title: string, options?: { content?: string; width?: number; height?: number; args?: string[]; cwd?: string }) => {
     if (!kernelRef.current || isKernelPanicked) return;
 
-    const existing = windows.find((w) => w.appId === appId);
-    if (existing) {
-      setWindows((prev) =>
-        prev.map((w) =>
+    setWindows((prev) => {
+      const existing = prev.find((w) => w.appId === appId);
+      if (existing) {
+        let targetZ = 100000;
+        const isSys = isSystemApp(appId);
+        if (isSys) {
+          const sysWins = prev.filter((w) => isSystemApp(w.appId) && w.appId !== "dialogUF");
+          const maxSystemZ = Math.max(...sysWins.map((w) => w.zIndex), 199999);
+          targetZ = Math.min(maxSystemZ + 1, 299999);
+        } else {
+          const userWins = prev.filter((w) => !isSystemApp(w.appId) && w.appId !== "dialogUF");
+          const maxUserZ = Math.max(...userWins.map((w) => w.zIndex), 99999);
+          targetZ = Math.min(maxUserZ + 1, 199999);
+        }
+        
+        setTimeout(() => setActiveWindowId(existing.id), 0);
+        return prev.map((w) =>
           w.appId === appId
-            ? { ...w, isMinimized: false, zIndex: Math.max(...prev.filter((x) => x.appId !== "dialogUF").map((x) => x.zIndex), 0) + 1, args: options?.args || w.args, cwd: options?.cwd || w.cwd }
+            ? { ...w, isMinimized: false, zIndex: targetZ, args: options?.args || w.args, cwd: options?.cwd || w.cwd }
             : w
-        )
-      );
-      setActiveWindowId(existing.id);
-      return;
-    }
+        );
+      }
 
-    // Launch process under current user's authority with args and cwd
-    const args = options?.args || (options?.content ? [options.content] : []);
-    const parentCwd = options?.cwd || "/home/" + kernelRef.current.getCurrentUser();
-    const pid = kernelRef.current.bootProcess(appId, false, args, parentCwd);
-    const windowId = `win_${pid}_${Date.now()}`;
+      // Launch process under current user's authority with args and cwd
+      const args = options?.args || (options?.content ? [options.content] : []);
+      const parentCwd = options?.cwd || "/home/" + kernelRef.current!.getCurrentUser();
+      const pid = kernelRef.current!.bootProcess(appId, false, args, parentCwd);
+      const windowId = `win_${pid}_${Date.now()}`;
 
-    const width = options?.width || 680;
-    const height = options?.height || 480;
-    const screenW = typeof window !== "undefined" ? window.innerWidth : 1024;
-    const screenH = typeof window !== "undefined" ? window.innerHeight : 768;
-    const x = Math.max(40, (screenW - width) / 2 + (windows.length * 25));
-    const y = Math.max(60, (screenH - height) / 2 + (windows.length * 20));
+      const width = options?.width || 680;
+      const height = options?.height || 480;
+      const screenW = typeof window !== "undefined" ? window.innerWidth : 1024;
+      const screenH = typeof window !== "undefined" ? window.innerHeight : 768;
+      const x = Math.max(40, (screenW - width) / 2 + (prev.length * 25));
+      const y = Math.max(60, (screenH - height) / 2 + (prev.length * 20));
 
-    const newWindow: WindowInstance = {
-      id: windowId,
-      appId,
-      title,
-      x,
-      y,
-      width,
-      height,
-      isMaximized: false,
-      isMinimized: false,
-      zIndex: Math.max(...windows.filter((w) => w.appId !== "dialogUF").map((w) => w.zIndex), 0) + 1,
-      args,
-      cwd: parentCwd,
-    };
+      const isSys = isSystemApp(appId);
+      let targetZ = 100000;
+      if (isSys) {
+        const sysWins = prev.filter((w) => isSystemApp(w.appId) && w.appId !== "dialogUF");
+        const maxSystemZ = Math.max(...sysWins.map((w) => w.zIndex), 199999);
+        targetZ = Math.min(maxSystemZ + 1, 299999);
+      } else {
+        const userWins = prev.filter((w) => !isSystemApp(w.appId) && w.appId !== "dialogUF");
+        const maxUserZ = Math.max(...userWins.map((w) => w.zIndex), 99999);
+        targetZ = Math.min(maxUserZ + 1, 199999);
+      }
 
-    setWindows((prev) => [...prev, newWindow]);
-    setActiveWindowId(windowId);
-  }, [windows, isKernelPanicked]);
+      const newWindow: WindowInstance = {
+        id: windowId,
+        appId,
+        title,
+        x,
+        y,
+        width,
+        height,
+        isMaximized: false,
+        isMinimized: false,
+        zIndex: targetZ,
+        args,
+        cwd: parentCwd,
+      };
+
+      setTimeout(() => setActiveWindowId(windowId), 0);
+      return [...prev, newWindow];
+    });
+  }, [isKernelPanicked]);
 
   const closeWindow = useCallback((windowId: string) => {
     if (kernelRef.current) {
@@ -678,33 +704,39 @@ export const useWebOS = () => {
     let x = (screenW - width) / 2;
     let y = (screenH - height) / 2;
 
-    if (ownerWindowId) {
-      setWindows((prev) => {
+    setWindows((prev) => {
+      let finalX = x;
+      let finalY = y;
+      if (ownerWindowId) {
         const parentWin = prev.find((w) => w.id === ownerWindowId);
         if (parentWin) {
-          x = parentWin.x + (parentWin.width - width) / 2;
-          y = parentWin.y + (parentWin.height - height) / 2;
+          finalX = parentWin.x + (parentWin.width - width) / 2;
+          finalY = parentWin.y + (parentWin.height - height) / 2;
         }
-        return prev;
-      });
-    }
+      }
 
-    const newWindow: WindowInstance = {
-      id,
-      appId: "dialogUF",
-      title,
-      x: Math.max(20, x),
-      y: Math.max(40, y),
-      width,
-      height,
-      isMaximized: false,
-      isMinimized: false,
-      zIndex: Math.max(...windows.map((w) => w.zIndex), 100000) + 1,
-      parentWindowId: ownerWindowId,
-      dialogData,
-    };
+      const dialogWins = prev.filter((w) => w.appId === "dialogUF");
+      const maxDialogZ = Math.max(...dialogWins.map((w) => w.zIndex), 299999);
+      const targetZIndex = Math.min(maxDialogZ + 1, 399999);
 
-    setWindows((prev) => [...prev, newWindow]);
+      const newWindow: WindowInstance = {
+        id,
+        appId: "dialogUF",
+        title,
+        x: Math.max(20, finalX),
+        y: Math.max(40, finalY),
+        width,
+        height,
+        isMaximized: false,
+        isMinimized: false,
+        zIndex: targetZIndex,
+        parentWindowId: ownerWindowId,
+        dialogData,
+      };
+
+      return [...prev, newWindow];
+    });
+
     setActiveWindowId(id);
     return id;
   }, []);
@@ -740,35 +772,54 @@ export const useWebOS = () => {
 
   const focusWindow = useCallback((windowId: string) => {
     setWindows((prev) => {
-      const nonDialogWins = prev.filter((w) => w.appId !== "dialogUF");
-      const maxNormalZ = Math.max(...nonDialogWins.map((w) => w.zIndex), 0);
-      
       const targetWin = prev.find((w) => w.id === windowId);
       if (!targetWin) return prev;
 
       const isDialog = targetWin.appId === "dialogUF";
-      
-      // Let's check if there is an active child dialog for this window
-      const childDialog = prev.find((w) => w.appId === "dialogUF" && w.parentWindowId === windowId);
+      const isSys = isSystemApp(targetWin.appId);
 
-      const parentNewZ = maxNormalZ + 1;
-      const childDialogNewZ = parentNewZ + 90000;
+      if (isDialog) {
+        const dialogWins = prev.filter((w) => w.appId === "dialogUF");
+        const maxDialogZ = Math.max(...dialogWins.map((w) => w.zIndex), 299999);
+        const targetZ = Math.min(maxDialogZ + 1, 399999);
+        return prev.map((w) => (w.id === windowId ? { ...w, isMinimized: false, zIndex: targetZ } : w));
+      } else if (isSys) {
+        const sysWins = prev.filter((w) => isSystemApp(w.appId) && w.appId !== "dialogUF");
+        const maxSystemZ = Math.max(...sysWins.map((w) => w.zIndex), 199999);
+        const targetZ = Math.min(maxSystemZ + 1, 299999);
 
-      return prev.map((w) => {
-        if (w.id === windowId) {
-          if (isDialog) {
-            const overallMaxZ = Math.max(...prev.map((x) => x.zIndex), 0);
-            return { ...w, isMinimized: false, zIndex: Math.max(100000, overallMaxZ + 1) };
-          } else {
-            return { ...w, isMinimized: false, zIndex: parentNewZ };
+        const childDialog = prev.find((w) => w.appId === "dialogUF" && w.parentWindowId === windowId);
+
+        return prev.map((w) => {
+          if (w.id === windowId) {
+            return { ...w, isMinimized: false, zIndex: targetZ };
           }
-        }
-        // If this is the active child dialog, bring it even further front than parent
-        if (childDialog && w.id === childDialog.id) {
-          return { ...w, isMinimized: false, zIndex: childDialogNewZ };
-        }
-        return w;
-      });
+          if (childDialog && w.id === childDialog.id) {
+            const dialogWins = prev.filter((x) => x.appId === "dialogUF");
+            const maxDialogZ = Math.max(...dialogWins.map((x) => x.zIndex), 299999);
+            return { ...w, isMinimized: false, zIndex: Math.min(maxDialogZ + 1, 399999) };
+          }
+          return w;
+        });
+      } else {
+        const userWins = prev.filter((w) => !isSystemApp(w.appId) && w.appId !== "dialogUF");
+        const maxUserZ = Math.max(...userWins.map((w) => w.zIndex), 99999);
+        const targetZ = Math.min(maxUserZ + 1, 199999);
+
+        const childDialog = prev.find((w) => w.appId === "dialogUF" && w.parentWindowId === windowId);
+
+        return prev.map((w) => {
+          if (w.id === windowId) {
+            return { ...w, isMinimized: false, zIndex: targetZ };
+          }
+          if (childDialog && w.id === childDialog.id) {
+            const dialogWins = prev.filter((x) => x.appId === "dialogUF");
+            const maxDialogZ = Math.max(...dialogWins.map((x) => x.zIndex), 299999);
+            return { ...w, isMinimized: false, zIndex: Math.min(maxDialogZ + 1, 399999) };
+          }
+          return w;
+        });
+      }
     });
 
     // Auto-focus the child dialog if one is present on the focused window

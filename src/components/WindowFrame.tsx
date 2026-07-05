@@ -84,7 +84,7 @@ export default function WindowFrame({
         const deltaX = e.clientX - startDragRef.current.mouseX;
         const deltaY = e.clientY - startDragRef.current.mouseY;
         const targetX = Math.max(0, startDragRef.current.winX + deltaX);
-        const targetY = Math.max(28, startDragRef.current.winY + deltaY); // Safe limit beneath top panel
+        const targetY = Math.max(0, startDragRef.current.winY + deltaY); // Safe limit beneath top panel (top bar is already handled by CSS block layout)
         onMove(win.id, targetX, targetY);
       } else if (isResizing) {
         const deltaX = e.clientX - startResizeRef.current.mouseX;
@@ -182,10 +182,10 @@ export default function WindowFrame({
  
   const style: React.CSSProperties = win.isMaximized
     ? {
-        top: "28px", // below our desk top panel
+        top: "0",
         left: "0",
-        width: "100vw",
-        height: "calc(100vh - 56px)", // fitting nicely between top and bottom bar
+        width: "100%",
+        height: "100%",
         zIndex: win.zIndex,
         ...windowStyleSystemProps
       }

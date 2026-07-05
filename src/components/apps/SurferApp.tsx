@@ -19,6 +19,7 @@ export default function SurferApp({ syscall }: SurferAppProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isOnline, setIsOnline] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
 
   // Check networking status on mount and when URL shifts, requiring web-dns.service to be active
   useEffect(() => {
@@ -40,6 +41,20 @@ export default function SurferApp({ syscall }: SurferAppProps) {
 
   const visitUrl = (url: string) => {
     const formatted = url.startsWith("http") ? url : `http://${url}`;
+    
+    // Simulate web transmission progress delay
+    setLoadingProgress(0);
+    let progressVal = 0;
+    const interval = setInterval(() => {
+      progressVal += 20;
+      if (progressVal >= 100) {
+        clearInterval(interval);
+        setLoadingProgress(null);
+      } else {
+        setLoadingProgress(progressVal);
+      }
+    }, 60);
+
     const newHist = history.slice(0, historyIdx + 1);
     newHist.push(formatted);
     setHistory(newHist);
@@ -95,6 +110,32 @@ export default function SurferApp({ syscall }: SurferAppProps) {
           url: "http://tuxwiki.org/minesweeper_secrets",
           desc: "Discover how to spot columns easily. Hint: The corner blocks define the safe zones.",
         },
+      ];
+    } else if (q.includes("space") || q.includes("stellar") || q.includes("universe") || q.includes("star")) {
+      r = [
+        {
+          title: "Stellar Voyage Chronicles - Space Exploration Log",
+          url: "http://stellar-voyage-chronicles.net",
+          desc: "The vintage journal documenting celestial orbital telemetry, deep space spectrum maps, and outer universe rover tracking.",
+        },
+        {
+          title: "Slashdot | NASA launches Kepler telescope preparation feeds",
+          url: "http://slashdot.org/nasa-kepler-space",
+          desc: "A review of orbital spectroscopy sensors being structured to locate earth-like planet candidates in distant constellations.",
+        }
+      ];
+    } else if (q.includes("software") || q.includes("download") || q.includes("app") || q.includes("editor")) {
+      r = [
+        {
+          title: "Retro Software Depot - Early Web VFS Utilities",
+          url: "http://retro-software-depot.com",
+          desc: "The central index for legacy operating system widgets, in-place compiler binaries, and custom text editor options.",
+        },
+        {
+          title: "Tux Wiki - Development of Secure Sandboxing in JS",
+          url: "http://tuxwiki.org/sandbox_specs",
+          desc: "A wiki entry analyzing the construction of in-memory filesystems and isolated user execution structures using closures.",
+        }
       ];
     } else {
       r = [
@@ -247,7 +288,7 @@ export default function SurferApp({ syscall }: SurferAppProps) {
           </form>
 
           {/* directory lists */}
-          <div className="mt-8 flex space-x-4 text-[11px] text-[#204a87] font-bold">
+          <div className="mt-8 flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[11px] text-[#204a87] font-bold max-w-md px-4">
             <button onClick={() => visitUrl("http://slashdot.org")} className="hover:underline">Slashdot</button>
             <span>•</span>
             <button onClick={() => visitUrl("http://tuxwiki.org")} className="hover:underline">Tux Wiki</button>
@@ -255,6 +296,10 @@ export default function SurferApp({ syscall }: SurferAppProps) {
             <button onClick={() => visitUrl("http://youtube.com")} className="hover:underline">YouTube Classic</button>
             <span>•</span>
             <button onClick={() => visitUrl("http://digg.com")} className="hover:underline">Digg Social</button>
+            <span>•</span>
+            <button onClick={() => visitUrl("http://stellar-voyage-chronicles.net")} className="hover:underline text-amber-750">Stellar Voyage</button>
+            <span>•</span>
+            <button onClick={() => visitUrl("http://retro-software-depot.com")} className="hover:underline text-blue-700">Software Depot</button>
           </div>
         </div>
       );
@@ -423,6 +468,151 @@ export default function SurferApp({ syscall }: SurferAppProps) {
       );
     }
 
+    if (currentUrl.includes("stellar-voyage-chronicles.net")) {
+      return (
+        <div className="font-mono text-xs bg-[#0b0c10] text-[#66fcf1] flex-1 flex flex-col p-4 select-text">
+          <div className="border border-[#1f2833] p-3 mb-4 bg-[#1f2833]/15 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-xl animate-pulse">🛰️</span>
+              <div>
+                <h1 className="text-sm font-extrabold text-[#45f3ff] uppercase tracking-widest">STELLAR VOYAGE CHRONICLES</h1>
+                <p className="text-[9px] text-[#c5c6c7] uppercase">Deep Space Spectroscopy Telemetry Interface</p>
+              </div>
+            </div>
+            <div className="text-right text-[10px] text-[#45f3ff] font-bold">
+              <span>ORBIT STATUS: ALIGNED</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+            <div className="border border-[#1f2833] bg-[#0b0c10] p-3 space-y-2.5">
+              <div className="text-[10px] text-[#45f3ff] font-extrabold uppercase border-b border-[#1f2833] pb-1 flex items-center justify-between">
+                <span>Constellation Spectrum Feeds</span>
+                <span className="text-rose-500 font-bold">● LIVE DATA</span>
+              </div>
+              <p className="text-[11px] leading-5 text-[#c5c6c7]">
+                Sensors detect orbital radiation anomalies in the Cygnus constellation cluster. Multi-band infrared imagery reveals a dense ionized hot pocket of carbon monoxide molecules rotating about target coordinates RA 20h 30m / Dec +40° 15'.
+              </p>
+              <div className="bg-[#1f2833]/10 p-2 border border-[#1f2833] space-y-1 text-[#45f3ff]/85 font-bold text-[9px] leading-4">
+                <div>✓ ANOMALY FLUX RANGE: 340 THz - 410 THz [STABLE]</div>
+                <div>✓ EXPECTED DECAY CONSTANT: ~11,200 SOLAR ORBITS</div>
+              </div>
+            </div>
+
+            <div className="border border-[#1f2833] bg-[#0b0c10] p-3 space-y-2">
+              <div className="text-[10px] text-[#45f3ff] font-extrabold uppercase border-b border-[#1f2833] pb-1">
+                Active Space Mission Telemetry
+              </div>
+              <p className="text-[11px] leading-5 text-[#c5c6c7]">
+                Autonomous landing craft "Vanguard-4" has initiated descent protocols towards Kepler-186f sector alpha. Ground crew signals register standard 140ms delay cycles.
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                <div className="bg-[#1f2833]/25 p-1.5 border border-[#1f2833] text-center text-[#66fcf1]">
+                  <span className="block text-[8px] uppercase tracking-wide text-zinc-400">Descent Rate</span>
+                  <span className="font-bold text-xs">142 m/s</span>
+                </div>
+                <div className="bg-[#1f2833]/25 p-1.5 border border-[#1f2833] text-center text-[#66fcf1]">
+                  <span className="block text-[8px] uppercase tracking-wide text-zinc-400">Fuel Reserves</span>
+                  <span className="font-bold text-xs">88.2%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentUrl.includes("retro-software-depot.com")) {
+      return (
+        <div className="font-sans text-xs bg-[#eeeeec] text-[#2c2c2c] flex-1 flex flex-col p-4 select-text">
+          <div className="bg-gradient-to-r from-[#204a87] to-[#3465a4] text-white p-4 rounded-sm flex items-center justify-between mb-4 shadow">
+            <div>
+              <span className="text-xl font-black italic tracking-tight">Retro Software Depot</span>
+              <p className="text-[9px] tracking-wide uppercase font-semibold text-sky-100">Free open-source software catalog for Virtual-VFS environments</p>
+            </div>
+            <span className="text-[10px] bg-black/30 px-2 py-0.5 font-bold uppercase rounded pr-2 text-sky-200">2006 Forge Host</span>
+          </div>
+
+          <div className="space-y-3.5 flex-1">
+            <h2 className="text-sm font-bold text-[#204a87] border-b border-[#babdb6] pb-1 uppercase tracking-wide">Available Packages</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Package 1 */}
+              <div className="border border-[#babdb6] bg-white p-3 space-y-1 shadow-sm flex flex-col rounded-sm">
+                <span className="font-bold text-sm text-blue-900 leading-tight">Leafpad Word-Typewriter Mod v2.1</span>
+                <span className="text-[9.5px] text-emerald-800 font-mono">Size: 90 KB | License: GPL v2</span>
+                <p className="text-xs text-gray-600 leading-normal flex-1">
+                  Enforces strict typewriter mode with Courier New configurations, dynamic save-with-progress dialog updates, and directory validation checks.
+                </p>
+                <div className="pt-2 text-right">
+                  <button
+                    onClick={() => {
+                      if (syscall.openDialog) {
+                        let pct = 0;
+                        const diagId = syscall.openDialog(
+                          "Downloading Leafpad",
+                          "Downloading word_typewriter.bin archive bytes from main forge host...",
+                          "info",
+                          ["Cancel"]
+                        );
+                        // Start simulation
+                        const timer = setInterval(() => {
+                          pct += 25;
+                          if (pct >= 100) {
+                            clearInterval(timer);
+                            if (syscall.closeDialog) syscall.closeDialog(diagId, null);
+                            syscall.openDialog("Download Success", "Package 'word_typewriter.bin' has been acquired successfully and integrated into virtual cache.", "info");
+                          }
+                        }, 200);
+                      }
+                    }}
+                    className="px-2.5 py-1 bg-[#d3d7cf] hover:bg-[#babdb6] border border-[#a8a8a8] rounded text-[10.5px] text-gray-800 font-bold cursor-pointer transition-colors"
+                  >
+                    Download Binaries
+                  </button>
+                </div>
+              </div>
+
+              {/* Package 2 */}
+              <div className="border border-[#babdb6] bg-white p-3 space-y-1 shadow-sm flex flex-col rounded-sm">
+                <span className="font-bold text-sm text-blue-900 leading-tight">Minesweeper Retro Gnomine Solvers Suite v1.0</span>
+                <span className="text-[9.5px] text-[#8e4a13] font-mono">Size: 52 KB | License: Free BSD</span>
+                <p className="text-xs text-gray-600 leading-normal flex-1">
+                  Includes advanced algorithms to flag symmetrical cell groups and locate safe blocks with zero guesses. Shows live progress dialog overlays.
+                </p>
+                <div className="pt-2 text-right">
+                  <button
+                    onClick={() => {
+                      if (syscall.openDialog) {
+                        let pct = 0;
+                        const diagId = syscall.openDialog(
+                          "Downloading Solvers",
+                          "Downloading gnomine_solvers.sh package payload from main forge host...",
+                          "info",
+                          ["Cancel"]
+                        );
+                        const timer = setInterval(() => {
+                          pct += 25;
+                          if (pct >= 100) {
+                            clearInterval(timer);
+                            if (syscall.closeDialog) syscall.closeDialog(diagId, null);
+                            syscall.openDialog("Download Success", "Package 'gnomine_solvers.sh' successfully downloaded to /home/tux/Documents/Download/ and verified.", "info");
+                          }
+                        }, 200);
+                      }
+                    }}
+                    className="px-2.5 py-1 bg-[#d3d7cf] hover:bg-[#babdb6] border border-[#a8a8a8] rounded text-[10.5px] text-gray-800 font-bold cursor-pointer transition-colors"
+                  >
+                    Download Shell Script
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // Default Fallback
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-400 italic font-sans select-none">
@@ -486,6 +676,16 @@ export default function SurferApp({ syscall }: SurferAppProps) {
           </button>
         </div>
       </div>
+
+      {/* Dynamic Vintage Progress bar for loading simulated web pages */}
+      {loadingProgress !== null && (
+        <div className="h-1 bg-[#edeceb] w-full relative shrink-0 overflow-hidden select-none border-b border-[#babdb6]">
+          <div 
+            className="h-full bg-[#3465a4] transition-all duration-75" 
+            style={{ width: `${loadingProgress}%` }}
+          />
+        </div>
+      )}
 
       {/* Main viewport canvas */}
       <div className="flex-1 overflow-y-auto bg-white flex flex-col min-h-0">

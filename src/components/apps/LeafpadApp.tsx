@@ -70,6 +70,13 @@ export default function LeafpadApp({
   const [language, setLanguage] = useState("plaintext");
   const [statusMsg, setStatusMsg] = useState("");
 
+  // Simulated retro progress dialog state
+  const [progressState, setProgressState] = useState<{
+    title: string;
+    message: string;
+    percent: number;
+  } | null>(null);
+
   useEffect(() => {
     // Load file contents
     try {
@@ -100,8 +107,8 @@ export default function LeafpadApp({
     }
   }, [filePath, syscall]);
 
-  const handleSave = () => {
-    if (!filePath.trim()) {
+  const triggerSaveWithProgress = (targetPath: string) => {
+    if (!targetPath.trim()) {
       const err = "Please provide a valid file path and name.";
       setStatusMsg(`Error: ${err}`);
       if (syscall.openDialog) {
@@ -109,20 +116,120 @@ export default function LeafpadApp({
       }
       return;
     }
-    const ok = syscall.writeFile(filePath, content);
-    if (ok) {
-      const okMsg = `Saved changes to ${filePath} successfully.`;
-      setStatusMsg(okMsg);
-      if (syscall.openDialog) {
-        syscall.openDialog("Save Successful", okMsg, "info");
+
+    let progress = 0;
+    setProgressState({
+      title: "Saving File",
+      message: "Allocating disk space transaction...",
+      percent: 0,
+    });
+
+    const interval = setInterval(() => {
+      progress += 20;
+      if (progress === 40) {
+        setProgressState({
+          title: "Saving File",
+          message: "Writing text payloads to virtual sector blocks...",
+          percent: 40,
+        });
+      } else if (progress === 80) {
+        setProgressState({
+          title: "Saving File",
+          message: "Flushing filesystem buffers and closing stream handles...",
+          percent: 80,
+        });
+      } else if (progress >= 100) {
+        clearInterval(interval);
+        setProgressState(null);
+
+        const ok = syscall.writeFile(targetPath, content);
+        if (ok) {
+          setFilePath(targetPath);
+          const okMsg = `Saved changes to ${targetPath} successfully.`;
+          setStatusMsg(okMsg);
+          if (syscall.openDialog) {
+            syscall.openDialog("Save Successful", okMsg, "info");
+          }
+          if (onSaveCallback) onSaveCallback();
+        } else {
+          const errMsg = "Failed to write to VFS. Ensure the parent path directory exists and you have write permissions.";
+          setStatusMsg(`Error: ${errMsg}`);
+          if (syscall.openDialog) {
+            syscall.openDialog("Permission Denied", errMsg, "error");
+          }
+        }
       }
-      if (onSaveCallback) onSaveCallback();
+    }, 150);
+  };
+
+  const handleSave = () => {
+    triggerSaveWithProgress(filePath);
+  };
+
+  const handleOpenFileDialog = () => {
+    if (syscall.openFileDialog) {
+      syscall.openFileDialog(
+        {
+          mode: "open",
+          selectType: "file",
+          initialPath: filePath,
+          allowedExtensions: [".txt", ".json", ".conf", ".cfg", ".sh", ".js", ".ts", ".html", ".css", ".md", ".py"]
+        },
+        (paths) => {
+          if (paths && paths[0]) {
+            // Retrieve file contents with simulated progress dialog
+            let progress = 0;
+            setProgressState({
+              title: "Opening File",
+              message: "Seeking file cluster indexes...",
+              percent: 0,
+            });
+
+            const interval = setInterval(() => {
+              progress += 25;
+              if (progress === 50) {
+                setProgressState({
+                  title: "Opening File",
+                  message: "Streaming node details from virtual sector register...",
+                  percent: 50,
+                });
+              } else if (progress === 75) {
+                setProgressState({
+                  title: "Opening File",
+                  message: "Parsing text buffers into Monaco registry...",
+                  percent: 75,
+                });
+              } else if (progress >= 100) {
+                clearInterval(interval);
+                setProgressState(null);
+                setFilePath(paths[0]);
+              }
+            }, 100);
+          }
+        }
+      );
     } else {
-      const errMsg = "Failed to write to VFS. Ensure the parent path directory exists and you have write permissions.";
-      setStatusMsg(`Error: ${errMsg}`);
-      if (syscall.openDialog) {
-        syscall.openDialog("Permission Denied", errMsg, "error");
-      }
+      setStatusMsg("Error: FileDialog system call is not supported in this runtime branch.");
+    }
+  };
+
+  const handleSaveAsFileDialog = () => {
+    if (syscall.openFileDialog) {
+      syscall.openFileDialog(
+        {
+          mode: "save",
+          selectType: "file",
+          initialPath: filePath,
+          allowedExtensions: [".txt", ".json", ".conf", ".cfg", ".sh", ".js", ".ts", ".html", ".css", ".md", ".py"]
+        },
+        (paths) => {
+          if (paths && paths[0]) {
+            triggerSaveWithProgress(paths[0]);
+          }
+        }
+      );
+    } else {
+      setStatusMsg("Error: FileDialog system call is not supported in this runtime branch.");
     }
   };
 
@@ -137,7 +244,32 @@ export default function LeafpadApp({
   const lineCount = content.split("\n").filter(Boolean).length;
 
   return (
-    <div className="flex-1 bg-white text-gray-800 flex flex-col min-h-0 select-text font-sans">
+    <div className="flex-1 bg-white text-gray-800 flex flex-col min-h-0 select-text font-sans relative">
+      {/* Immersive Classic Progress Dialog Overlay */}
+      {progressState && (
+        <div className="absolute inset-0 bg-black/45 flex items-center justify-center z-[5000000] p-4 select-none">
+          <div className="w-80 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-black border-b-black shadow-2xl p-4 flex flex-col space-y-3 font-sans text-xs text-black">
+            <div className="flex justify-between items-center bg-[#002080] text-white px-2 py-0.5 font-bold leading-normal">
+              <span className="font-sans">Processing Task</span>
+              <span>⌛</span>
+            </div>
+            <div className="flex flex-col space-y-2 p-1">
+              <span className="font-semibold text-gray-800 leading-tight block">{progressState.message}</span>
+              {/* Progress track */}
+              <div className="h-5 bg-white border border-t-[#808080] border-l-[#808080] border-r-white border-b-white p-0.5 relative flex items-center">
+                <div 
+                  className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-100" 
+                  style={{ width: `${progressState.percent}%` }} 
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-blue-900 mix-blend-difference">
+                  {progressState.percent}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Menu controls (2006 style classic toolbar) */}
       <div className="bg-[#eeeeec] border-b border-[#babdb6] flex flex-wrap items-center py-1 px-1.5 gap-2 select-none text-xs text-[#2e3436] font-medium leading-none">
         
@@ -148,6 +280,15 @@ export default function LeafpadApp({
         >
           <FilePlus className="w-3.5 h-3.5 shrink-0" />
           <span>New</span>
+        </button>
+
+        <button
+          onClick={handleOpenFileDialog}
+          className="flex items-center space-x-1 px-2 py-1.5 hover:bg-[#d3d7cf] rounded transition-colors cursor-pointer"
+          title="Open Document File Dialog"
+        >
+          <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+          <span>Open...</span>
         </button>
         
         <div className="w-[1px] h-4 bg-gray-300 shrink-0" />
@@ -178,17 +319,28 @@ export default function LeafpadApp({
           </select>
         </div>
 
-        <button
-          onClick={handleSave}
-          className="flex items-center space-x-1 px-2.5 py-1.5 hover:bg-[#d3d7cf] rounded text-[#3465a4] font-semibold transition-colors cursor-pointer ml-auto"
-          title="Save File"
-        >
-          <Save className="w-3.5 h-3.5 shrink-0" />
-          <span>Save</span>
-        </button>
+        <div className="flex items-center space-x-1 ml-auto">
+          <button
+            onClick={handleSave}
+            className="flex items-center space-x-1 px-2.5 py-1.5 hover:bg-[#d3d7cf] rounded text-gray-800 font-semibold transition-colors cursor-pointer"
+            title="Save File"
+          >
+            <Save className="w-3.5 h-3.5 shrink-0" />
+            <span>Save</span>
+          </button>
+          
+          <button
+            onClick={handleSaveAsFileDialog}
+            className="flex items-center space-x-1 px-2.5 py-1.5 hover:bg-[#d3d7cf] rounded text-[#3465a4] font-semibold transition-colors cursor-pointer"
+            title="Save As..."
+          >
+            <Save className="w-3.5 h-3.5 shrink-0 text-[#3465a4]" />
+            <span>Save As...</span>
+          </button>
+        </div>
       </div>
 
-      {/* Editor Main Canvas with Monaco */}
+      {/* Editor Main Canvas with Monaco and typewriter monospace typewriter font */}
       <div className="flex-1 min-h-0 relative">
         <Editor
           height="100%"
@@ -199,7 +351,7 @@ export default function LeafpadApp({
           options={{
             minimap: { enabled: false },
             fontSize: 12,
-            fontFamily: "JetBrains Mono, Fira Code, Courier New, monospace",
+            fontFamily: "Courier New, Courier, monospace",
             wordWrap: "on",
             automaticLayout: true,
             lineNumbers: "on",

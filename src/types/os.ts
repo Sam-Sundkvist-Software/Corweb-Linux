@@ -168,4 +168,14 @@ export interface SystemCallInterface {
     initialInputVal?: string
   ) => string;
   closeDialog?: (id: string, result: unknown) => void;
+  openFileDialog?: (
+    options: {
+      mode: "open" | "save";
+      selectType: "file" | "folder" | "both";
+      multiselect?: boolean;
+      initialPath?: string;
+      allowedExtensions?: string[];
+    },
+    onSelect: (paths: string[]) => void
+  ) => void;
 }

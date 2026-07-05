@@ -1,4 +1,5 @@
 import { NodeType, VFSNode } from "../types/os";
+import { createPremadeAssemblies } from "./gsocc";
 
 const DB_NAME = "Linux2006WebOS_DB";
 const STORE_NAME = "vfs_store";
@@ -199,6 +200,23 @@ Log in as 'root' for total CPU world domination.
                 version: "1.0.0",
                 dependencies: ["VFS"],
                 author: "System Registry Software Foundation"
+              },
+              {
+                id: "assemblyInspectorUF",
+                name: "Assembly Inspector",
+                description: "ILSpy style decompiler and assembly object metadata tree browser for .soc library files",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "GSOCC Development Labs"
+              },
+              {
+                id: "tlmlIdeUF",
+                name: "TLML IDE",
+                description: "Advanced Integrated Development Environment for TLML assembly program compiling, AutoCommit IntelliSense, and instruction debugging.",
+                version: "1.0.0",
+                dependencies: ["VFS"],
+                author: "GSOCC Development Labs",
+                icon: "terminal"
               }
             ], null, 2)
           },
@@ -238,6 +256,8 @@ Everything persists to IndexedDB. If you brick the kernel, click "Hard Reset VFS
                   "Leafpad.desktop": { name: "Leafpad.desktop", type: NodeType.FILE, createdAt: Date.now(), content: "Exec=leafpad" },
                   "Minesweeper.desktop": { name: "Minesweeper.desktop", type: NodeType.FILE, createdAt: Date.now(), content: "Exec=minesweeper" },
                   "ThemeConfigurator.desktop": { name: "ThemeConfigurator.desktop", type: NodeType.FILE, createdAt: Date.now(), content: "Exec=themeManager\nIcon=palette" },
+                  "AssemblyInspector.desktop": { name: "AssemblyInspector.desktop", type: NodeType.FILE, createdAt: Date.now(), content: "Exec=assemblyInspector\nIcon=file-search" },
+                  "TLML_IDE.desktop": { name: "TLML_IDE.desktop", type: NodeType.FILE, createdAt: Date.now(), content: "Exec=tlmlIde\nIcon=terminal" },
                 },
               },
               Documents: {
@@ -245,6 +265,19 @@ Everything persists to IndexedDB. If you brick the kernel, click "Hard Reset VFS
                 type: NodeType.DIRECTORY,
                 createdAt: Date.now(),
                 children: {
+                  Assemblies: {
+                    name: "Assemblies",
+                    type: NodeType.DIRECTORY,
+                    createdAt: Date.now(),
+                    children: {
+                      "TLML.Lang.soc": {
+                        name: "TLML.Lang.soc",
+                        type: NodeType.FILE,
+                        createdAt: Date.now(),
+                        content: "" // Will be populated with correct standard library content on load
+                      }
+                    }
+                  },
                   "kernel_security.txt": {
                     name: "kernel_security.txt",
                     type: NodeType.FILE,
@@ -353,7 +386,134 @@ export const loadVFSFromDisk = async (): Promise<VFSNode> => {
 
       request.onsuccess = () => {
         if (request.result) {
-          resolve(request.result as VFSNode);
+          const loadedVFS = request.result as VFSNode;
+          let changed = false;
+
+          // 1. Ensure Assembly Inspector desktop shortcut exists
+          if (!resolveNode(loadedVFS, "/home/tux/Desktop/AssemblyInspector.desktop")) {
+            writeVFSFile(loadedVFS, "/home/tux/Desktop/AssemblyInspector.desktop", "Exec=assemblyInspector\nIcon=file-search");
+            changed = true;
+          }
+
+          // Ensure TLML IDE desktop shortcut exists
+          if (!resolveNode(loadedVFS, "/home/tux/Desktop/TLML_IDE.desktop")) {
+            writeVFSFile(loadedVFS, "/home/tux/Desktop/TLML_IDE.desktop", "Exec=tlmlIde\nIcon=terminal");
+            changed = true;
+          }
+
+          // Ensure sys/lib directory exists and standard library is written
+          if (!resolveNode(loadedVFS, "/sys")) {
+            mkdirVFS(loadedVFS, "/sys");
+            changed = true;
+          }
+          if (!resolveNode(loadedVFS, "/sys/lib")) {
+            mkdirVFS(loadedVFS, "/sys/lib");
+            changed = true;
+          }
+
+          const premade = createPremadeAssemblies();
+
+          if (!resolveNode(loadedVFS, "/sys/lib/TLML.Lang.soc")) {
+            writeVFSFile(loadedVFS, "/sys/lib/TLML.Lang.soc", JSON.stringify(premade["TLML.Lang"], null, 2));
+            changed = true;
+          } else {
+            // Update to latest standard assembly definition with the new namespaces/methods
+            writeVFSFile(loadedVFS, "/sys/lib/TLML.Lang.soc", JSON.stringify(premade["TLML.Lang"], null, 2));
+            changed = true;
+          }
+
+          // 2. Ensure Assemblies directory and files exist
+          if (!resolveNode(loadedVFS, "/home/tux/Documents/Assemblies")) {
+            mkdirVFS(loadedVFS, "/home/tux/Documents/Assemblies");
+            changed = true;
+          }
+
+          // Clean up distracting old assemblies from previous VFS states if present
+          const distractingAssemblies = [
+            "TrashKernel.Security.soc",
+            "Quantum.Voxel.Physics.soc",
+            "Diagnostics.Telemetry.soc"
+          ];
+          for (const key of distractingAssemblies) {
+            const path = `/home/tux/Documents/Assemblies/${key}`;
+            if (resolveNode(loadedVFS, path)) {
+              deleteVFSNode(loadedVFS, path);
+              changed = true;
+            }
+          }
+
+          // Write updated TLML.Lang.soc to Assemblies folder too
+          const langPath = `/home/tux/Documents/Assemblies/TLML.Lang.soc`;
+          writeVFSFile(loadedVFS, langPath, JSON.stringify(premade["TLML.Lang"], null, 2));
+          changed = true;
+
+          // 3. Ensure customAppRegistry contains both apps
+          const customRegistryNode = resolveNode(loadedVFS, "/etc/customAppRegistry.json");
+          if (customRegistryNode && customRegistryNode.type === NodeType.FILE && customRegistryNode.content) {
+            try {
+              const registry = JSON.parse(customRegistryNode.content);
+              if (Array.isArray(registry)) {
+                let regChanged = false;
+                if (!registry.some(app => app.id === "assemblyInspectorUF")) {
+                  registry.push({
+                    id: "assemblyInspectorUF",
+                    name: "Assembly Inspector",
+                    description: "ILSpy style decompiler and assembly object metadata tree browser for .soc library files",
+                    version: "1.0.0",
+                    dependencies: ["VFS"],
+                    author: "GSOCC Development Labs"
+                  });
+                  regChanged = true;
+                }
+                if (!registry.some(app => app.id === "tlmlIdeUF")) {
+                  registry.push({
+                    id: "tlmlIdeUF",
+                    name: "TLML IDE",
+                    description: "Advanced Integrated Development Environment for TLML assembly program compiling, AutoCommit IntelliSense, and instruction debugging.",
+                    version: "1.0.0",
+                    dependencies: ["VFS"],
+                    author: "GSOCC Development Labs",
+                    icon: "terminal"
+                  });
+                  regChanged = true;
+                }
+                if (regChanged) {
+                  customRegistryNode.content = JSON.stringify(registry, null, 2);
+                  changed = true;
+                }
+              }
+            } catch (err) {
+              console.warn("Failed to parse customAppRegistry.json", err);
+            }
+          }
+
+          // Legacy check backup
+          const registryNode = resolveNode(loadedVFS, "/etc/apps/registry.json");
+          if (registryNode && registryNode.type === NodeType.FILE && registryNode.content) {
+            try {
+              const registry = JSON.parse(registryNode.content);
+              if (Array.isArray(registry) && !registry.some(app => app.id === "assemblyInspectorUF")) {
+                registry.push({
+                  id: "assemblyInspectorUF",
+                  name: "Assembly Inspector",
+                  description: "ILSpy style decompiler and assembly object metadata tree browser for .soc library files",
+                  version: "1.0.0",
+                  dependencies: ["VFS"],
+                  author: "GSOCC Development Labs"
+                });
+                registryNode.content = JSON.stringify(registry, null, 2);
+                changed = true;
+              }
+            } catch (err) {
+              console.warn("Failed to parse registry.json to inject assemblyInspector", err);
+            }
+          }
+
+          if (changed) {
+            saveVFSToDisk(loadedVFS);
+          }
+
+          resolve(loadedVFS);
         } else {
           // If no VFS in indexedDB, create default and save
           const base = createBaseVFS();

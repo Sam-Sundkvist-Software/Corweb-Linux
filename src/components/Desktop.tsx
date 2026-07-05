@@ -45,7 +45,10 @@ import MusicPlayerApp from "./apps/MusicPlayerApp";
 import DialogApp from "./apps/DialogApp";
 import ThemeManagerApp from "./apps/ThemeManagerApp";
 import AppRegistryApp from "./apps/AppRegistryApp";
+import FileDialogApp from "./apps/FileDialogApp";
 import { DynamicAppRenderer } from "./apps/DynamicAppRenderer";
+import AssemblyInspectorApp from "./apps/AssemblyInspectorApp";
+import TlmlIdeApp from "./apps/TlmlIdeApp";
 
 // Boot Screens imports
 import { DetailedBootScreen, GdmLoginScreen, KernelPanicScreen } from "./BootScreens";
@@ -73,11 +76,14 @@ import {
   Image as ImageIcon,
   Video,
   Music,
-  Palette
+  Palette,
+  Binary
 } from "lucide-react";
 
 const getAppIcon = (iconName?: string) => {
   switch (iconName) {
+    case "file-search":
+      return <Binary className="w-3.5 h-3.5" />;
     case "monitor":
       return <Monitor className="w-3.5 h-3.5" />;
     case "terminal":
@@ -128,6 +134,8 @@ export default function Desktop() {
 
   // Stable window-aware custom Syscall interface cache to prevent React hook re-trigger loops
   const syscallsCacheRef = useRef<Record<string, any>>({});
+  const fileDialogCallbacksRef = useRef<Record<string, (paths: string[]) => void>>({});
+
   if (os.kernel) {
     const activeIds = new Set(os.windows.map((w) => w.id));
     // Clean deleted window instances from cache references
@@ -156,6 +164,30 @@ export default function Desktop() {
             return os.openDialog(title, message, type, options, win.id, onClose, initialInputVal);
           },
           closeDialog: os.closeDialog,
+          openFileDialog: (
+            options: {
+              mode: "open" | "save";
+              selectType: "file" | "folder" | "both";
+              multiselect?: boolean;
+              initialPath?: string;
+              allowedExtensions?: string[];
+            },
+            onSelect: (paths: string[]) => void
+          ) => {
+            const dialogId = `file_dialog_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            fileDialogCallbacksRef.current[dialogId] = onSelect;
+            os.launchApp("fileDialogUF", options.mode === "save" ? "Save As" : "Open File", {
+              width: 580,
+              height: 430,
+              args: [
+                JSON.stringify({
+                  ...options,
+                  callbackId: dialogId,
+                  parentWindowId: win.id
+                })
+              ]
+            });
+          }
         };
       }
     });
@@ -200,11 +232,355 @@ export default function Desktop() {
     return () => clearInterval(lagInterval);
   }, [liveSettingsObj?.current_desktop_theme]);
 
-  // Close menus when clicking desktop wallpaper
+   // Close menus when clicking desktop wallpaper
   const handleWallpaperClick = () => {
     setAppsMenuOpen(false);
     setPlacesMenuOpen(false);
     setSystemMenuOpen(false);
+    setContextMenu(null);
+  };
+
+  // Custom tooltips and context menu states definition
+  const [tooltip, setTooltip] = useState<{
+    text: string;
+    title?: string;
+    icon?: string;
+    variant?: string;
+    font?: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Dynamic boundaries check and repositioning of the custom tooltip element
+  useEffect(() => {
+    if (!tooltip || !tooltipRef.current) return;
+    const el = tooltipRef.current;
+    
+    // Set off-screen first and transparent to let layout calculate actual dimensions clean
+    el.style.left = "-9999px";
+    el.style.top = "-9999px";
+    el.style.opacity = "0";
+    
+    // Perform live measurements
+    const rect = el.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    
+    const screenW = typeof window !== "undefined" ? window.innerWidth : 1024;
+    const screenH = typeof window !== "undefined" ? window.innerHeight : 768;
+    
+    let left = tooltip.x + 12;
+    let top = tooltip.y + 15;
+    
+    // Determine right border overrun
+    if (left + width > screenW - 8) {
+      left = tooltip.x - width - 12;
+    }
+    // Safe viewport clamping
+    left = Math.max(8, Math.min(left, screenW - width - 8));
+    
+    // Determine bottom border overrun
+    if (top + height > screenH - 8) {
+      top = tooltip.y - height - 15;
+    }
+    // Safe viewport clamping
+    top = Math.max(8, Math.min(top, screenH - height - 8));
+    
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.style.opacity = "1";
+  }, [tooltip]);
+
+  const getTooltipStyles = (variant: string) => {
+    switch (variant) {
+      case "info":
+        return {
+          wrapper: "bg-[#e8f0fe] text-[#185abc] border border-[#4285f4] border-l-4 border-l-[#4285f4] shadow-md min-w-[200px]",
+          iconColor: "text-[#4285f4]",
+          titleColor: "text-[#174ea6] font-bold",
+          textColor: "text-[#185abc]"
+        };
+      case "warning":
+        return {
+          wrapper: "bg-[#fef7e0] text-[#b06000] border border-[#f4b400] border-l-4 border-l-[#f4b400] shadow-md min-w-[200px]",
+          iconColor: "text-[#e37400]",
+          titleColor: "text-[#b06000] font-bold",
+          textColor: "text-[#804600]"
+        };
+      case "error":
+        return {
+          wrapper: "bg-[#fce8e6] text-[#c5221f] border border-[#ea4335] border-l-4 border-l-[#ea4335] shadow-md min-w-[200px]",
+          iconColor: "text-[#ea4335]",
+          titleColor: "text-[#b0120a] font-bold",
+          textColor: "text-[#b0120a]"
+        };
+      case "success":
+        return {
+          wrapper: "bg-[#e6f4ea] text-[#137333] border border-[#34a853] border-l-4 border-l-[#34a853] shadow-md min-w-[200px]",
+          iconColor: "text-[#34a853]",
+          titleColor: "text-[#137333] font-bold",
+          textColor: "text-[#0d652d]"
+        };
+      case "system":
+      case "retro":
+      default:
+        return {
+          wrapper: "bg-[#ffffe1] text-black border border-black shadow-[2px_2px_4px_rgba(0,0,0,0.3)]",
+          iconColor: "text-zinc-600",
+          titleColor: "text-neutral-900 font-bold",
+          textColor: "text-zinc-800"
+        };
+    }
+  };
+
+  const parseTooltipText = (text: string) => {
+    if (!text) return null;
+    const lines = text.split("\n");
+    return lines.map((line, lineIndex) => {
+      const parts = line.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+      return (
+        <div key={lineIndex} className="min-h-[14px]">
+          {parts.map((part, partIndex) => {
+            if (part.startsWith("**") && part.endsWith("**")) {
+              return <strong key={partIndex} className="font-semibold">{part.slice(2, -2)}</strong>;
+            }
+            if (part.startsWith("*") && part.endsWith("*")) {
+              return <em key={partIndex} className="italic">{part.slice(1, -1)}</em>;
+            }
+            return part;
+          })}
+        </div>
+      );
+    });
+  };
+
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    type: "desktop" | "shortcut";
+    shortcutName?: string;
+    shortcutType?: NodeType;
+  } | null>(null);
+
+  // Global browser context menu block
+  useEffect(() => {
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("contextmenu", handleGlobalContextMenu);
+    const handleGlobalClickAway = () => {
+      setContextMenu(null);
+    };
+    window.addEventListener("click", handleGlobalClickAway);
+    return () => {
+      window.removeEventListener("contextmenu", handleGlobalContextMenu);
+      window.removeEventListener("click", handleGlobalClickAway);
+    };
+  }, []);
+
+  // Global mouse interaction handlers to achieve fully native custom tooltips over regular titles
+  useEffect(() => {
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const el = target.closest("[title], [data-tooltip], [data-tooltip-title]") as HTMLElement;
+      if (el) {
+        let text = el.getAttribute("data-tooltip");
+        if (!text) {
+          const originalTitle = el.getAttribute("title");
+          if (originalTitle) {
+            el.setAttribute("data-tooltip", originalTitle);
+            el.removeAttribute("title");
+            text = originalTitle;
+          }
+        }
+        
+        const tooltipTitle = el.getAttribute("data-tooltip-title") || "";
+        const tooltipIcon = el.getAttribute("data-tooltip-icon") || "";
+        const tooltipVariant = el.getAttribute("data-tooltip-variant") || "default";
+        const tooltipFont = el.getAttribute("data-tooltip-font") || "mono";
+
+        if (text || tooltipTitle) {
+          setTooltip({
+            text: text || "",
+            title: tooltipTitle,
+            icon: tooltipIcon,
+            variant: tooltipVariant,
+            font: tooltipFont,
+            x: e.clientX,
+            y: e.clientY
+          });
+        }
+      } else {
+        setTooltip(null);
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const el = target.closest("[data-tooltip], [data-tooltip-title]") as HTMLElement;
+      if (el) {
+        const text = el.getAttribute("data-tooltip") || "";
+        const tooltipTitle = el.getAttribute("data-tooltip-title") || "";
+        const tooltipIcon = el.getAttribute("data-tooltip-icon") || "";
+        const tooltipVariant = el.getAttribute("data-tooltip-variant") || "default";
+        const tooltipFont = el.getAttribute("data-tooltip-font") || "mono";
+        
+        if (text || tooltipTitle) {
+          setTooltip({
+            text,
+            title: tooltipTitle,
+            icon: tooltipIcon,
+            variant: tooltipVariant,
+            font: tooltipFont,
+            x: e.clientX,
+            y: e.clientY
+          });
+          return;
+        }
+      }
+      setTooltip(null);
+    };
+
+    const handleMouseOut = () => {
+      setTooltip(null);
+    };
+
+    window.addEventListener("mouseover", handleMouseOver);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseout", handleMouseOut);
+
+    return () => {
+      window.removeEventListener("mouseover", handleMouseOver);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseout", handleMouseOut);
+    };
+  }, []);
+
+  // Bubbling / tunneling aware right-click handlers
+  const handleDesktopBgContextMenu = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(".silver-window") || 
+      target.closest(".top-panel-main") || 
+      target.closest(".bottom-taskbar-main") ||
+      target.closest(".about-dialog-modal")
+    ) {
+      return;
+    }
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      type: "desktop"
+    });
+  };
+
+  const handleDesktopShortcutContextMenu = (e: React.MouseEvent, name: string, type: NodeType) => {
+    e.preventDefault();
+    e.stopPropagation(); // Stop routing to the high level wallpaper handler
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      type: "shortcut",
+      shortcutName: name,
+      shortcutType: type
+    });
+  };
+
+  // Directory and Text file creation utilizing native Visual systemialog boxes
+  const handleCreateFolder = () => {
+    setContextMenu(null);
+    os.openDialog(
+      "Create Directory",
+      "Enter a name for the new folder:",
+      "input",
+      ["OK", "Cancel"],
+      undefined,
+      (result: any) => {
+        if (result && typeof result === "string" && result.trim()) {
+          const folderName = result.trim();
+          if (os.kernel) {
+            const userHomePath = `/home/${os.currentUser}/Desktop/${folderName}`;
+            const token = os.kernel.getSyscallToken(1);
+            const success = token.createDirectory(userHomePath);
+            if (!success) {
+              os.openDialog("Action Error", "Failed to create directory. It may already exist or you lack permission.", "error");
+            }
+          }
+        }
+      }
+    );
+  };
+
+  const handleCreateFile = () => {
+    setContextMenu(null);
+    os.openDialog(
+      "Create File",
+      "Enter a name for the text document:",
+      "input",
+      ["OK", "Cancel"],
+      undefined,
+      (result: any) => {
+        if (result && typeof result === "string" && result.trim()) {
+          const fileName = result.trim();
+          const sanitized = fileName.endsWith(".txt") ? fileName : `${fileName}.txt`;
+          if (os.kernel) {
+            const userHomePath = `/home/${os.currentUser}/Desktop/${sanitized}`;
+            const token = os.kernel.getSyscallToken(1);
+            const success = token.writeFile(userHomePath, "");
+            if (!success) {
+              os.openDialog("Action Error", "Failed to create file. Check folder permissions.", "error");
+            }
+          }
+        }
+      }
+    );
+  };
+
+  const handleOpenShortcut = () => {
+    if (contextMenu?.shortcutName && contextMenu?.shortcutType) {
+      if (contextMenu.shortcutName === "Rules Control") {
+        os.launchApp("control_panel", "Systemctl Rules Panel", { width: 780, height: 500 });
+      } else {
+        handleDesktopShortcutDoubleClick(contextMenu.shortcutName, contextMenu.shortcutType);
+      }
+    }
+    setContextMenu(null);
+  };
+
+  const handleTrashShortcut = () => {
+    if (contextMenu?.shortcutName === "Rules Control") {
+      os.openDialog("Security System", "Cannot delete static system rules launcher shortcut.", "warning");
+      setContextMenu(null);
+      return;
+    }
+    if (contextMenu?.shortcutName && os.kernel) {
+      const path = `/home/${os.currentUser}/Desktop/${contextMenu.shortcutName}`;
+      const token = os.kernel.getSyscallToken(1);
+      const success = token.deleteNode(path);
+      if (!success) {
+        os.openDialog("Security Block", "System denied write/delete command for current node.", "error");
+      }
+    }
+    setContextMenu(null);
+  };
+
+  const handleInfoShortcut = () => {
+    if (contextMenu?.shortcutName) {
+      const isSystemLaunch = contextMenu.shortcutName === "Rules Control";
+      const path = isSystemLaunch ? "/bin/control_panel" : `/home/${os.currentUser}/Desktop/${contextMenu.shortcutName}`;
+      os.openDialog(
+        "Node Details Utility",
+        `Target path: ${path}\nType: ${contextMenu.shortcutType === NodeType.DIRECTORY ? "Directory" : "File"}\nStatus: Active & Secure\nGroup authority: system`,
+        "info"
+      );
+    }
+    setContextMenu(null);
   };
 
   // 1. KERNEL PANIC SCREEN COVERAGE
@@ -276,6 +652,8 @@ export default function Desktop() {
               else if (matchedApp.id === "videoPlayerUF") opts = { width: 620, height: 480 };
               else if (matchedApp.id === "musicPlayerUF") opts = { width: 620, height: 460 };
               else if (matchedApp.id === "appRegistryUF") opts = { width: 700, height: 500 };
+              else if (matchedApp.id === "assemblyInspectorUF") opts = { width: 840, height: 540 };
+              else if (matchedApp.id === "tlmlIdeUF") opts = { width: 950, height: 620 };
 
               os.launchApp(matchedApp.id, matchedApp.name, opts);
               return;
@@ -290,6 +668,10 @@ export default function Desktop() {
           os.launchApp("leafpadUF", "Leafpad (Text Editor)");
         } else if (name.includes("Theme")) {
           os.launchApp("themeManagerUF", "Theme Configurator", { width: 520, height: 420 });
+        } else if (name.includes("AssemblyInspector")) {
+          os.launchApp("assemblyInspectorUF", "Assembly Inspector", { width: 840, height: 540 });
+        } else if (name.includes("TLML_IDE") || name.includes("tlmlIde")) {
+          os.launchApp("tlmlIdeUF", "TLML IDE", { width: 950, height: 620 });
         }
       }
     }
@@ -474,6 +856,8 @@ export default function Desktop() {
                         opts = { width: 620, height: 460 };
                       } else if (app.id === "appRegistryUF") {
                         opts = { width: 700, height: 500 };
+                      } else if (app.id === "assemblyInspectorUF") {
+                        opts = { width: 840, height: 540 };
                       }
                       os.launchApp(app.id, app.name, opts);
                       setAppsMenuOpen(false);
@@ -621,15 +1005,27 @@ export default function Desktop() {
         {/* TOP PANEL RIGHTS & SEC SECURITY STATS */}
         <div className="flex items-center space-x-2 text-[10.5px]">
           {/* Active privileges indicator */}
-          <div className="flex items-center space-x-1 px-1.5 py-[1px] bg-[#b8b4ac] border border-b-[#808080] border-r-[#808080] rounded-none font-bold uppercase text-black">
+          <div 
+            data-tooltip-title="User Authentication Privilege"
+            data-tooltip-icon="🔑"
+            data-tooltip-variant="success"
+            data-tooltip={`Your authenticated context is currently active under standard group rules.\n\nRole: **${os.currentUserRole}**\nSystem status: *secure*`}
+            className="flex items-center space-x-1 px-1.5 py-[1px] bg-[#b8b4ac] border border-b-[#808080] border-r-[#808080] rounded-none font-bold uppercase text-black cursor-help"
+          >
             <ShieldCheck className="w-3.5 h-3.5 text-slate-800" />
             <span>role: {os.currentUserRole}</span>
           </div>
 
           <div className="flex items-center space-x-1.5 border-r border-[#808080] pr-2 select-none">
-            <Volume2 className="w-3.5 h-3.5 text-[#555] opacity-80" />
+            <Volume2 className="w-3.5 h-3.5 text-[#555] opacity-80 animate-none" />
             <Wifi className="w-3.5 h-3.5 text-[#555]" />
-            <span className="text-[10px] bg-[#b8b4ac]/50 border border-[#808080] px-1 py-0.5 font-bold">
+            <span 
+              data-tooltip-title="Active Network Interface Controller"
+              data-tooltip-icon="🌐"
+              data-tooltip-variant="warning"
+              data-tooltip={`eth0 is active on sandbox loopback: **127.0.0.1**.\n\nWarning: Socket listener is *throttled* within browser sandboxing. Launch XTerm and execute ping requests directly.`}
+              className="text-[10px] bg-[#b8b4ac]/50 border border-[#808080] px-1 py-0.5 font-bold cursor-help"
+            >
               eth0: {liveSettingsObj?.networking_enabled !== false ? "127.0.0.1" : "offline"}
             </span>
           </div>
@@ -656,6 +1052,7 @@ export default function Desktop() {
       <div
         className="flex-1 w-full relative z-10 p-4"
         onClick={handleWallpaperClick}
+        onContextMenu={handleDesktopBgContextMenu}
       >
         {!isDesktopManagerActive ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 font-mono text-center p-6 select-none z-30">
@@ -686,6 +1083,22 @@ export default function Desktop() {
           {/* Default User Session Icon */}
           <div 
             onDoubleClick={() => os.launchApp("control_panel", "Systemctl Rules Panel", { width: 780, height: 500 })}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setContextMenu({
+                visible: true,
+                x: e.clientX,
+                y: e.clientY,
+                type: "shortcut",
+                shortcutName: "Rules Control",
+                shortcutType: NodeType.DIRECTORY
+              });
+            }}
+            data-tooltip-title="Kernel Configuration & Security Panel"
+            data-tooltip-icon="⚙️"
+            data-tooltip-variant="info"
+            data-tooltip={`Manage real-time execution bounds, systemctl daemon rules, and binary runtimes.\n\nDouble-click to expand sandbox.`}
             className="flex flex-col items-center group cursor-pointer text-center w-22 p-1"
           >
             <div className="w-10 h-10 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center shadow-lg group-hover:scale-105 transition-all text-xl">
@@ -703,6 +1116,7 @@ export default function Desktop() {
               <div
                 key={item.name}
                 onDoubleClick={() => handleDesktopShortcutDoubleClick(item.name, item.type)}
+                onContextMenu={(e) => handleDesktopShortcutContextMenu(e, item.name, item.type)}
                 className="flex flex-col items-center group cursor-pointer text-center w-22 p-1 select-all"
                 style={{ contentVisibility: "auto" }}
               >
@@ -759,6 +1173,26 @@ export default function Desktop() {
                    onClose={(id, res) => os.closeDialog(win.id, res)}
                  />
                )}
+               {win.appId === "fileDialogUF" && (
+                 <FileDialogApp
+                   syscall={syscall}
+                   args={win.args}
+                   onClose={(paths) => {
+                     const argObj = win.args && win.args[0] ? JSON.parse(win.args[0]) : null;
+                     if (argObj && argObj.callbackId) {
+                       const cb = fileDialogCallbacksRef.current[argObj.callbackId];
+                       if (cb) {
+                         cb(paths);
+                         delete fileDialogCallbacksRef.current[argObj.callbackId];
+                       }
+                     }
+                     os.closeWindow(win.id);
+                   }}
+                   onCancel={() => {
+                     os.closeWindow(win.id);
+                   }}
+                 />
+               )}
                {win.appId === "terminalUF" && (
                 <TerminalApp
                   syscall={syscall}
@@ -772,6 +1206,12 @@ export default function Desktop() {
                   syscall={syscall}
                   initialFilePath={win.args && win.args[0] ? win.args[0] : undefined}
                 />
+              )}
+              {win.appId === "assemblyInspectorUF" && (
+                <AssemblyInspectorApp syscall={syscall} />
+              )}
+              {win.appId === "tlmlIdeUF" && (
+                <TlmlIdeApp syscall={syscall} />
               )}
               {win.appId === "systemMonitorUFD" && (
                 <SystemMonitorApp syscall={syscall} />
@@ -871,13 +1311,16 @@ export default function Desktop() {
       </div>
 
       {/* BOTTOM TASKS TRAY PANEL BAR */}
-      <div className="h-7 w-full bg-gradient-to-b from-[#fafafa] via-[#e2e2e2] to-[#cccccc] border-t border-t-white border-b border-b-[#a0a0a0] flex items-center justify-between px-2 text-xs text-black select-none z-40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+      <div className="bottom-taskbar-main h-7 w-full bg-gradient-to-b from-[#fafafa] via-[#e2e2e2] to-[#cccccc] border-t border-t-white border-b border-b-[#a0a0a0] flex items-center justify-between px-2 text-xs text-black select-none z-40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
         <div className="flex items-center space-x-1 flex-1 min-w-0 pr-4">
           {/* Toggle ALL Trigger */}
           <button
             onClick={handleToggleMinimizeAll}
             className="h-4.5 flex items-center px-2 bg-[#d4d0c8] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] text-[9.5px] font-bold cursor-pointer hover:bg-[#c0c0c0] active:border-t-[#808080] active:border-l-[#808080] uppercase tracking-wider h-5"
-            title="Minimize all opened windows overlay"
+            data-tooltip-title="Desktop Compositor Switcher"
+            data-tooltip-icon="🖥️"
+            data-tooltip-variant="success"
+            data-tooltip="Instantly minimize or restore all currently open terminal and program frames.\n\nUseful for clearing workspace clutter."
           >
             Show Desktop
           </button>
@@ -914,7 +1357,7 @@ export default function Desktop() {
         {/* Space indicator mock widget box */}
         <div className="flex items-center space-x-2">
           {/* 4 elements mini workspace grid picker */}
-          <div className="grid grid-cols-2 gap-[2px] w-5 h-5 p-[1px] bg-[#bab4ac] border border-t-[#808080] border-l-[#808080] border-r-white border-b-white opacity-85" title="Workspace Switcher">
+          <div className="grid grid-cols-2 gap-[2px] w-5 h-5 p-[1px] bg-[#bab4ac] border border-t-[#808080] border-l-[#808080] border-r-white border-b-white opacity-85" data-tooltip="Workspace Switcher">
             <div className="bg-[#002080]" />
             <div className="bg-transparent" />
             <div className="bg-transparent" />
@@ -926,12 +1369,136 @@ export default function Desktop() {
           <div
             className="flex items-center space-x-1 hover:bg-[#c0c0c0] h-5 px-1 cursor-pointer"
             onClick={() => os.launchApp("fileManagerUF", "VFS Node Explorer", { content: `/home/${user}` })}
-            title="Quick access file manager"
+            data-tooltip-title="File Explorer Launcher"
+            data-tooltip-icon="📂"
+            data-tooltip-variant="retro"
+            data-tooltip="Launch the quick access file manager directly in your home directory *(/home/user)*.\n\nDouble-click or click to open."
           >
             <AppWindow className="w-3.5 h-3.5" />
           </div>
         </div>
       </div>
+
+      {/* CUSTOM CONTEXT MENU ELEMENT OVERLAY */}
+      {contextMenu && contextMenu.visible && (
+        <div
+          className="fixed bg-[#d4d0c8] select-none text-black text-xs min-w-44 py-1 border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-[3px_3px_10px_rgba(0,0,0,0.4)] leading-5 p-0.5"
+          style={{
+            left: `${contextMenu.x}px`,
+            top: `${contextMenu.y}px`,
+            zIndex: 450000
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.type === "desktop" ? (
+            <div className="flex flex-col text-[11px] font-sans">
+              <button
+                onClick={handleCreateFolder}
+                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+              >
+                <span>📂</span>
+                <span>New Directory...</span>
+              </button>
+              <button
+                onClick={handleCreateFile}
+                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+              >
+                <span>📄</span>
+                <span>New Text File...</span>
+              </button>
+              <div className="h-px bg-[#808080] my-1 mx-1.5" />
+              <button
+                onClick={() => {
+                  os.launchApp("themeManagerUF", "Theme Configurator", { width: 520, height: 420 });
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+              >
+                <span>🌅</span>
+                <span>Configure Desktop</span>
+              </button>
+              <button
+                onClick={() => {
+                  os.launchApp("terminalUF", "XTerm Shell Server", { width: 685, height: 440 });
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+              >
+                <span>💻</span>
+                <span>Terminal Shell</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col text-[11px] font-sans">
+              <button
+                onClick={handleOpenShortcut}
+                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white font-bold flex items-center space-x-2"
+              >
+                <span>🏃‍♂️</span>
+                <span>Execute program</span>
+              </button>
+              <button
+                onClick={handleInfoShortcut}
+                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+              >
+                <span>ℹ️</span>
+                <span>Display Info</span>
+              </button>
+              <div className="h-px bg-[#808080] my-1 mx-1.5" />
+              <button
+                onClick={handleTrashShortcut}
+                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white text-red-800 flex items-center space-x-2"
+              >
+                <span>🗑️</span>
+                <span>Trash Item</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CUSTOM FLOATING BOUNDS-CHECKED TOOLTIP ELEMENT OVERLAY */}
+      {tooltip && (() => {
+        const tStyle = getTooltipStyles(tooltip.variant || "default");
+        const fontClass = tooltip.font === "sans" ? "font-sans text-[11px]" : "font-mono text-[9.5px]";
+
+        const iconToRender = tooltip.icon || (
+          tooltip.variant === "info" ? "ℹ️" :
+          tooltip.variant === "warning" ? "⚠️" :
+          tooltip.variant === "error" ? "🛑" :
+          tooltip.variant === "success" ? "✅" : ""
+        );
+
+        return (
+          <div
+            ref={tooltipRef}
+            className={`fixed pointer-events-none p-2 shadow-[3px_3px_6px_rgba(0,0,0,0.25)] flex flex-row items-start gap-2 max-w-[260px] whitespace-normal break-words z-[510000] border-2 transition-opacity duration-75 ${tStyle.wrapper}`}
+            style={{
+              left: "-9999px",
+              top: "-9999px",
+              opacity: 0,
+            }}
+          >
+            {iconToRender && (
+              <span className="text-sm select-none shrink-0" style={{ transform: "translateY(1px)" }}>
+                {iconToRender}
+              </span>
+            )}
+            <div className="flex-1 flex flex-col gap-0.5">
+              {tooltip.title && (
+                <div className={`text-[11px] font-sans font-extrabold leading-tight tracking-tight uppercase ${tStyle.titleColor}`}>
+                  {tooltip.title}
+                </div>
+              )}
+              {tooltip.text && (
+                <div className={`${fontClass} leading-normal tracking-wide ${tStyle.textColor}`}>
+                  {parseTooltipText(tooltip.text)}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {liveSettingsObj?.current_desktop_theme === "Broken" && (
         <>
