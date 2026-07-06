@@ -1,1212 +1,1218 @@
 import { Process, ProcessState, SystemCallInterface, NodeType, DaemonService, VFSNode } from "../types/os";
 import {
-  resolveNode,
-  writeVFSFile,
-  mkdirVFS,
-  deleteVFSNode,
-  listVFSDir,
-  readVFSFile,
-  saveVFSToDisk,
+	resolveNode,
+	writeVFSFile,
+	mkdirVFS,
+	deleteVFSNode,
+	listVFSDir,
+	readVFSFile,
+	saveVFSToDisk,
 } from "./vfs";
 
 // Kernel Encapsulation boundary definition with extended properties
 export interface KernelInstance {
-  bootProcess: (name: string, isBackground?: boolean, args?: string[], cwd?: string) => number;
-  killProcess: (pid: number) => boolean;
-  getProcesses: () => Process[];
-  getKernelVFS: () => VFSNode;
-  getSyscallToken: (pid: number) => SystemCallInterface;
-  writeSyslog: (msg: string) => void;
-  getSyslogs: () => string[];
-  registerVFSListener: (listener: (root: VFSNode) => void) => () => void;
-  // Account security session states
-  getCurrentUser: () => string;
-  getCurrentUserRole: () => string;
-  loginUser: (username: string, passwordHash: string) => boolean;
-  logoutUser: () => void;
-  registerAuthListener: (listener: (user: string, role: string) => void) => () => void;
-  testAuthentication: () => { name: string; passed: boolean; message: string }[];
-  // Kernel disaster containment
-  isPanicked: () => boolean;
-  getPanicMessage: () => string;
-  triggerPanic: (reason: string) => void;
-  registerPanicListener: (listener: (msg: string) => void) => () => void;
-  flushVFSToDisk: () => Promise<boolean>;
+	bootProcess: (name: string, isBackground?: boolean, args?: string[], cwd?: string) => number;
+	killProcess: (pid: number) => boolean;
+	getProcesses: () => Process[];
+	getKernelVFS: () => VFSNode;
+	getSyscallToken: (pid: number) => SystemCallInterface;
+	writeSyslog: (msg: string) => void;
+	getSyslogs: () => string[];
+	registerVFSListener: (listener: (root: VFSNode) => void) => () => void;
+	// Account security session states
+	getCurrentUser: () => string;
+	getCurrentUserRole: () => string;
+	loginUser: (username: string, passwordHash: string) => boolean;
+	logoutUser: () => void;
+	registerAuthListener: (listener: (user: string, role: string) => void) => () => void;
+	testAuthentication: () => { name: string; passed: boolean; message: string }[];
+	// Kernel disaster containment
+	isPanicked: () => boolean;
+	getPanicMessage: () => string;
+	triggerPanic: (reason: string) => void;
+	registerPanicListener: (listener: (msg: string) => void) => () => void;
+	flushVFSToDisk: () => Promise<boolean>;
 }
 
 export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "xsi" | "fob" = "secure"): KernelInstance => {
-  let vfsRoot: VFSNode = JSON.parse(JSON.stringify(initialVFS));
-  
-  // ==========================================
-  // VFS SECURITY & SYSTEM SELF-HEALING (FSCK)
-  // ==========================================
-  const healFileSystemNode = () => {
-    try {
-      // 1. Ensure /etc exists
-      const etcNode = resolveNode(vfsRoot, "/etc");
-      if (!etcNode) {
-        mkdirVFS(vfsRoot, "/etc");
-      }
-
-      // Ensure /etc/bootaid.json exists
-      const defaultBootAid = {
-        default: "createSecureKernel",
-        kernels: [
-          { id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" }
-        ]
-      };
-      const bootaidNode = resolveNode(vfsRoot, "/etc/bootaid.json");
-      if (!bootaidNode || !bootaidNode.content) {
-        writeVFSFile(vfsRoot, "/etc/bootaid.json", JSON.stringify(defaultBootAid, null, 2));
-      }
-
-      // Ensure /proc exists
-      if (!resolveNode(vfsRoot, "/proc")) {
-        mkdirVFS(vfsRoot, "/proc");
-      }
-      let versionStr = "Linux version 2.6.15-26-386 (GCC 4.0.3) PREEMPT GMT 2006";
-      if (flavor === "xsi") {
-        versionStr = "Linux version 2.8.2-xsi-386 (GCC 4.2.1) PREEMPT PRE-RELEASE XSI 2006";
-      } else if (flavor === "fob") {
-        versionStr = "Linux version 1.0.0-fob-core (GCC 3.4.6) SLIM-SMP x86 FOB-OS 2006";
-      }
-      writeVFSFile(vfsRoot, "/proc/version", versionStr);
-
-      // 2. Ensure /etc/users.json exists and is pristine
-      const usersFile = resolveNode(vfsRoot, "/etc/users.json");
-      const defaultUsers = [
-        { username: "root", passwordHash: "root", role: "root", fullName: "System Administrator", avatar: "system" },
-        { username: "tux", passwordHash: "tux", role: "admin", fullName: "Tux the Penguin", avatar: "penguin" },
-        { username: "guest", passwordHash: "", role: "user", fullName: "Guest User", avatar: "guest" }
-      ];
-      if (!usersFile || !usersFile.content) {
-        writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(defaultUsers, null, 2));
-      } else {
-        try {
-          const parsed = JSON.parse(usersFile.content);
-          if (!Array.isArray(parsed) || !parsed.some(u => u.username === "guest") || !parsed.some(u => u.username === "tux")) {
-            writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(defaultUsers, null, 2));
-          }
-        } catch {
-          writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(defaultUsers, null, 2));
-        }
-      }
-
-      // 3. Ensure /etc/sysconfig.json exists
-      const configNode = resolveNode(vfsRoot, "/etc/sysconfig.json");
-      const defaultSettings = {
-        hostname: "tux-dapper-2006",
-        dns_primary: "8.8.8.8",
-        networking_enabled: true,
-        system_sound: true,
-        wallpaper_style: "Classic Blue",
-        custom_wallpaper_color_1: "#2b5c8f",
-        custom_wallpaper_color_2: "#5086c1",
-        syslog_verbosity: "INFO",
-        allow_regular_user_system_writes: false,
-        restrict_process_kill: true,
-        allow_guest_terminal: true,
-        simulated_cpu_threads: 4,
-        show_welcome_tip: true,
-        system_locked: false,
-        kernel_panic_on_missing_sysconfig: true,
-        kernel_panic_flag: false
-      };
-      if (!configNode || !configNode.content) {
-        writeVFSFile(vfsRoot, "/etc/sysconfig.json", JSON.stringify(defaultSettings, null, 2));
-      } else {
-        try {
-          JSON.parse(configNode.content);
-        } catch {
-          writeVFSFile(vfsRoot, "/etc/sysconfig.json", JSON.stringify(defaultSettings, null, 2));
-        }
-      }
-
-      // Ensure /etc/customAppRegistry.json exists
-      const registryNode = resolveNode(vfsRoot, "/etc/customAppRegistry.json");
-      const defaultApps = [
-        {
-          id: "desktopEnv",
-          name: "Desktop Environment",
-          description: "Core window supervisor, start panels, shortcuts, and global skeuomorphic context managers",
-          version: "1.0.0",
-          dependencies: ["Kernel", "syslog.service"],
-          author: "TrashLinux Core Development Group",
-          path: "/bin/desktop",
-          pathType: "internal"
-        },
-        {
-          id: "terminalUF",
-          name: "Command Terminal",
-          description: "Terminal shell with standard command emulation, process spawners, and local environment bindings",
-          version: "1.0.0",
-          dependencies: ["VFS"],
-          author: "GNU Terminal Project",
-          icon: "terminal",
-          path: "/bin/terminal",
-          pathType: "internal"
-        },
-        {
-          id: "fileManagerUF",
-          name: "File Explorer",
-          description: "File tree navigation suite and visual disk explorer",
-          version: "1.0.0",
-          dependencies: ["VFS"],
-          author: "Nautilus File Manager Group",
-          icon: "folder",
-          path: "/bin/filemanager",
-          pathType: "internal"
-        },
-        {
-          id: "leafpadUF",
-          name: "Text Editor",
-          description: "Lightweight, distraction-free document writer and editor",
-          version: "1.0.0",
-          dependencies: ["VFS"],
-          author: "LXDE Group",
-          icon: "file-text",
-          path: "/bin/leafpad",
-          pathType: "internal"
-        },
-        {
-          id: "systemMonitorUFD",
-          name: "System Monitor",
-          description: "Process monitor, daemon service status manager, and threat control console",
-          version: "1.0.0",
-          dependencies: ["Kernel"],
-          author: "Sysinternals Logging Division",
-          icon: "cpu",
-          path: "/bin/sysmonitor",
-          pathType: "internal"
-        },
-        {
-          id: "minesweeperUF",
-          name: "Minesweeper Game",
-          description: "Classic retro logic puzzle board game with customizable grids",
-          version: "1.0.0",
-          dependencies: [],
-          author: "Retro Classics Inc",
-          icon: "gamepad",
-          path: "/bin/minesweeper",
-          pathType: "internal"
-        },
-        {
-          id: "surferUF",
-          name: "Web Browser",
-          description: "Text-based HTML visualizer and DNS lookup client",
-          version: "1.0.0",
-          dependencies: ["syslog.service"],
-          author: "CERN Hackers Group",
-          icon: "globe",
-          path: "/bin/browser",
-          pathType: "internal"
-        },
-        {
-          id: "controlPanelUFD",
-          name: "System Settings",
-          description: "Users account administrator and general configuration flags setup",
-          version: "1.0.0",
-          dependencies: ["Kernel"],
-          author: "TrashLinux Admin Foundation",
-          icon: "settings",
-          path: "/bin/settings",
-          pathType: "internal"
-        },
-        {
-          id: "themeManagerUF",
-          name: "Theme Configurator",
-          description: "Visual customizer for skeuomorphic borders, solid/gradient desktop wallpapers, custom CSS code injections, and system-wide CSS selectors rules engine",
-          version: "1.0.0",
-          dependencies: ["VFS"],
-          author: "XFCE Customization Labs",
-          icon: "palette",
-          path: "/bin/theme",
-          pathType: "internal"
-        },
-        {
-          id: "imageViewerUF",
-          name: "Image Viewer",
-          description: "A fast layout graphic browser supporting simple images and canvas pixels",
-          version: "1.0.0",
-          dependencies: ["VFS"],
-          author: "GNOME Media Developers",
-          icon: "image",
-          path: "/bin/imageview",
-          pathType: "internal"
-        },
-        {
-          id: "videoPlayerUF",
-          name: "Video Player",
-          description: "Visual stream media window rendering offline files and logs",
-          version: "1.0.0",
-          dependencies: ["VFS"],
-          author: "VideoLAN Team",
-          icon: "video",
-          path: "/bin/videoplay",
-          pathType: "internal"
-        },
-        {
-          id: "musicPlayerUF",
-          name: "Music Player",
-          description: "Audio playlist utility to play music streams and tracks in retro skins",
-          version: "1.0.0",
-          dependencies: ["VFS"],
-          author: "XMMS Music Player Group",
-          icon: "music",
-          path: "/bin/musicplay",
-          pathType: "internal"
-        },
-        {
-          id: "appRegistryUF",
-          name: "App Registry Manager",
-          description: "Administrative console to dynamic app registry configurations, dependencies, authors, and version bumps",
-          version: "1.0.0",
-          dependencies: ["VFS"],
-          author: "System Registry Software Foundation",
-          icon: "layout",
-          path: "/bin/appreg",
-          pathType: "internal"
-        },
-        {
-          id: "myCustomApp",
-          name: "Dynamic Custom App",
-          description: "Live compiled TSX application loaded from the VFS registry space",
-          version: "1.0.0",
-          dependencies: ["VFS"],
-          author: "guest",
-          icon: "layout",
-          path: "/home/guest/custom_app.tsx",
-          pathType: "internal"
-        }
-      ];
-      if (!registryNode || !registryNode.content) {
-        writeVFSFile(vfsRoot, "/etc/customAppRegistry.json", JSON.stringify(defaultApps, null, 2));
-      } else {
-        try {
-          JSON.parse(registryNode.content);
-        } catch {
-          writeVFSFile(vfsRoot, "/etc/customAppRegistry.json", JSON.stringify(defaultApps, null, 2));
-        }
-      }
-
-      // 4. Ensure /home/guest, /home/tux, /home/root structure
-      const userHomes = ["guest", "tux", "root"];
-      for (const username of userHomes) {
-        if (!resolveNode(vfsRoot, `/home/${username}`)) {
-          mkdirVFS(vfsRoot, `/home/${username}`);
-          mkdirVFS(vfsRoot, `/home/${username}/Desktop`);
-          mkdirVFS(vfsRoot, `/home/${username}/Documents`);
-        }
-        
-        // Seed default poor-quality media files for player apps
-        if (username !== "root") {
-          const deskPath = `/home/${username}/Desktop`;
-          if (!resolveNode(vfsRoot, `${deskPath}/classic_sunset.jpg`)) {
-            writeVFSFile(vfsRoot, `${deskPath}/classic_sunset.jpg`, `[IMAGE_SUNSET_MOCK] width=64;height=64;pixels=orange,sunset,retro;title=Vintage Sunset 2006`);
-          }
-          if (!resolveNode(vfsRoot, `${deskPath}/retro_vibes.mp3`)) {
-            writeVFSFile(vfsRoot, `${deskPath}/retro_vibes.mp3`, `[AUDIO_CHIPTUNE_MOCK] tempo=130;melody=C4,D4,E4,G4,A4,C5,E5;noise=high;title=Vintage Chiptune`);
-          }
-          if (!resolveNode(vfsRoot, `${deskPath}/matrix_screensaver.mp4`)) {
-            writeVFSFile(vfsRoot, `${deskPath}/matrix_screensaver.mp4`, `[VIDEO_MATRIX_MOCK] fps=4;resolution=32x24;color=matrix;title=Matrix Code Screen`);
-          }
-          if (!resolveNode(vfsRoot, `${deskPath}/ThemeConfigurator.desktop`)) {
-            writeVFSFile(vfsRoot, `${deskPath}/ThemeConfigurator.desktop`, "Exec=themeManager\nIcon=palette");
-          }
-        }
-      }
-    } catch (e) {
-      console.error("[FSCK] Failed to self-heal VFS:", e);
-    }
-  };
-
-  healFileSystemNode();
-
-  const activeProcesses: Map<number, Process> = new Map();
-  let nextPid = 1;
-
-  // Global user session variables
-  let currentLoggedInUser = "guest";
-  let currentLoggedInUserRole = "user";
-
-  // Kernel panic status indicators
-  let kernelPanicState = false;
-  let kernelPanicMessage = "";
-
-  // ==========================================
-  // DAEMON VITAL STATE MANAGEMENT
-  // ==========================================
-  let syslogdEnabled = true;
-  let authEnabled = true;
-  let dnsResolverActive = true;
-  let desktopManagerActive = true;
-  let garbageSweeperActive = true;
-  let soundServerActive = true;
-  let simulatedRamWastedKb = 0;
-  let systemInitPid = -1;
-
-  const syslogBuffer: string[] = [
-    `[${new Date().toISOString()}] Kernel init successful. Encapsulation barriers active.`,
-    `[${new Date().toISOString()}] PID hashing salt initialized.`,
-    `[${new Date().toISOString()}] Security sub-system ready. Default user set to 'guest'.`
-  ];
-
-  const vfsListeners: Set<(root: VFSNode) => void> = new Set();
-  const authListeners: Set<(user: string, role: string) => void> = new Set();
-  const panicListeners: Set<(msg: string) => void> = new Set();
-
-  const triggerVFSChange = () => {
-    const deepCopy = JSON.parse(JSON.stringify(vfsRoot));
-    vfsListeners.forEach((listener) => listener(deepCopy));
-  };
-
-  const writeSyslog = (msg: string) => {
-    if (!syslogdEnabled) return;
-    const timestamp = new Date().toLocaleTimeString();
-    const log = `[${timestamp}] ${msg}`;
-    syslogBuffer.push(log);
-    if (syslogBuffer.length > 500) {
-      syslogBuffer.shift();
-    }
-    const logNode = resolveNode(vfsRoot, "/var/log/syslog");
-    if (logNode && logNode.type === NodeType.FILE) {
-      logNode.content = (logNode.content ?? "") + `\n${log}`;
-    }
-  };
-
-  const performLogin = (username: string, passwordHash: string): boolean => {
-    if (kernelPanicState) return false;
-    if (!authEnabled) {
-      writeSyslog(`[AUTH] Failed to authenticate on username '${username}' - auth.service is OFFLINE!`);
-      return false;
-    }
-    try {
-      // Dynamic healing in case file is modified or deleted mid-session
-      healFileSystemNode();
-
-      const usersFile = resolveNode(vfsRoot, "/etc/users.json");
-      if (!usersFile || !usersFile.content) {
-        writeSyslog(`[AUTH] Failed to resolve credential tree /etc/users.json`);
-        return false;
-      }
-      const users = JSON.parse(usersFile.content);
-      const found = users.find((u: any) => u.username === username);
-      if (found) {
-        const isMatch =
-          found.passwordHash === passwordHash ||
-          found.passwordHash === "" ||
-          (username === "tux" && (passwordHash === "tux" || passwordHash === "tux2006")) ||
-          (username === "root" && (passwordHash === "root" || passwordHash === "root2006")) ||
-          (username === "guest" && (passwordHash === "guest" || passwordHash === ""));
-
-        if (isMatch) {
-          currentLoggedInUser = username;
-          currentLoggedInUserRole = found.role;
-          writeSyslog(`[AUTH] Session established for user '${username}' [Role: ${found.role}]`);
-          authListeners.forEach((l) => l(username, found.role));
-          return true;
-        }
-      }
-    } catch (e: any) {
-      writeSyslog(`[AUTH] Error parsing user logins: ${e.message}`);
-    }
-    return false;
-  };
-
-  const triggerPanic = (reason: string, customStack?: string) => {
-    if (kernelPanicState) return;
-    kernelPanicState = true;
-    
-    // Auto-generate a detailed virtual backtrace if none provided
-    const stack = customStack || new Error("Kernel Backtrace Generated").stack || "No stack trace trace buffer recorded.";
-    kernelPanicMessage = `${reason}\n\nSTACK_TRACE:\n${stack}`;
-    syslogdEnabled = true; // Force-enable log streams for post-mortem dump
-    writeSyslog(`[CRITICAL PANIC] ${reason}`);
-    writeSyslog(`[BACKTRACE] ${stack}`);
-    saveVFSToDisk(vfsRoot); // Try flush VFS
-    panicListeners.forEach((l) => l(kernelPanicMessage));
-  };
-
-  // Base processes list
-  const bootProcess = (name: string, isBackground = false, args?: string[], cwd?: string): number => {
-    if (kernelPanicState) {
-      throw new Error("System execution prohibited: Kernel is in a panicked state.");
-    }
-
-    // Parameters type integrity validation checks
-    if (typeof name !== "string" || name.trim() === "") {
-      const err = new Error("Invalid pid parameters: Process name must be a non-empty string descriptor.");
-      triggerPanic("Kernel Panic: SysCall bootProcess param initialization failed. Empty or corrupt name descriptor.", err.stack);
-      throw err;
-    }
-
-    if (cwd && (typeof cwd !== "string" || !cwd.startsWith("/") || cwd.includes("//") || cwd.includes("/../"))) {
-      const err = new Error("Invalid pid parameters: Malformed, relative, or directory-traversed CWD path.");
-      triggerPanic(`Kernel Panic: Syscall bootProcess CWD validation exception for process '${name}': '${cwd}'`, err.stack);
-      throw err;
-    }
-
-    const pid = nextPid++;
-    
-    // Store systemInitPid when systemBackgroundProcessD boots
-    if (name === "systemBackgroundProcessD") {
-      systemInitPid = pid;
-    }
-
-    const isServiceOrSystem = name.endsWith(".service") || name === "systemBackgroundProcessD" || name === "kernel";
-    const procDefOwner = isServiceOrSystem ? "root" : currentLoggedInUser;
-
-    const proc: Process = {
-      pid,
-      name,
-      state: isBackground ? ProcessState.SERVICE : ProcessState.RUNNING,
-      owner: procDefOwner,
-      memoryUsage: name === "systemBackgroundProcessD" ? (4096 + simulatedRamWastedKb) : Math.floor(1024 + Math.random() * 4096),
-      cpuUsage: Math.floor(Math.random() * 5),
-      logs: [],
-      startTime: Date.now(),
-      isBackground,
-      args,
-      cwd,
-    };
-
-    // Attach onStarted and onStopped hook handlers for vital services
-    if (name === "syslogd.service") {
-      proc.onStarted = () => {
-        syslogdEnabled = true;
-        writeSyslog("[syslogd] Logging daemon initialized. System events are now tracked.");
-      };
-      proc.onStopped = () => {
-        syslogdEnabled = false;
-        // Logs offline notice to be seen after reboot or service restart
-        console.warn("syslogd stopped! System events are now frozen.");
-      };
-    } else if (name === "auth.service") {
-      proc.onStarted = () => {
-        authEnabled = true;
-        writeSyslog("[auth-daemon] Security auth.service active. Session management protocols loaded.");
-      };
-      proc.onStopped = () => {
-        authEnabled = false;
-        writeSyslog("[auth-daemon] [CRITICAL] auth.service terminated! Warning: Authentication subsystem is offline. New login connections will fail.");
-      };
-    } else if (name === "web-dns.service") {
-      proc.onStarted = () => {
-        dnsResolverActive = true;
-        writeSyslog("[web-dns] DNS resolver daemon started on root loopback. Web browsing is online.");
-      };
-      proc.onStopped = () => {
-        dnsResolverActive = false;
-        writeSyslog("[web-dns] [WARNING] web-dns.service offline. Web searches and external page queries will return DNS lookup timeout errors.");
-      };
-    } else if (name === "desktop-manager.service") {
-      proc.onStarted = () => {
-        desktopManagerActive = true;
-        writeSyslog("[desktop-manager] GNOME/KDE theme and panel overlay composite system online.");
-      };
-      proc.onStopped = () => {
-        desktopManagerActive = false;
-        writeSyslog("[desktop-manager] [WARNING] desktop-manager.service was terminated. Composite frame performance degraded.");
-      };
-    } else if (name === "memcleanG.service") {
-      proc.onStarted = () => {
-        garbageSweeperActive = true;
-        writeSyslog("[memcleanG] Garbage cleaner active. Virtual swap buffers monitoring memory space.");
-      };
-      proc.onStopped = () => {
-        garbageSweeperActive = false;
-        writeSyslog("[memcleanG] [CRITICAL] memcleanG.service terminated! Out-of-memory hazard active. RAM leaks will swell memory usage.");
-      };
-    } else if (name === "audio-server.service") {
-      proc.onStarted = () => {
-        soundServerActive = true;
-        writeSyslog("[audio-server] ALSA Audio server active. Audio driver lines mounted.");
-      };
-      proc.onStopped = () => {
-        soundServerActive = false;
-        writeSyslog("[audio-server] [WARNING] ALSA Audio server stopped. Beep syntax and play operations will be silent.");
-      };
-    } else if (name === "xsi-ipc-broker.service") {
-      proc.onStarted = () => {
-        writeSyslog("[xsi-ipc-broker] IPC broker daemon active. Shared locks and dynamic page namespaces mounted.");
-      };
-      proc.onStopped = () => {
-        writeSyslog("[xsi-ipc-broker] [CRITICAL] IPC broker daemon terminated! IPC channels collapsed.");
-      };
-    }
-
-    activeProcesses.set(pid, proc);
-    writeSyslog(`Process spawned: ${name} (PID: ${pid}, Owner: ${proc.owner}, Cwd: ${cwd || "/"}, Args: ${JSON.stringify(args || [])})`);
-    
-    if (proc.onStarted) {
-      try {
-        proc.onStarted();
-      } catch (err) {
-        console.error(`Error executing onStarted for ${name}:`, err);
-      }
-    }
-    return pid;
-  };
-
-  const killProcess = (pid: number): boolean => {
-    if (pid === systemInitPid) {
-      triggerPanic("Kernel Panic: Attempted kill on system Init Daemon (systemBackgroundProcessD) - core process missing! System halted.");
-      return false;
-    }
-    const proc = activeProcesses.get(pid);
-    if (proc) {
-      // Invoke onStopped if defined
-      if (proc.onStopped) {
-        try {
-          proc.onStopped();
-        } catch (err) {
-          console.error(`Error in onStopped for ${proc.name}:`, err);
-        }
-      }
-      
-      // Update its service entry if it's a registered service
-      const svc = services.find(s => s.name === proc.name);
-      if (svc) {
-        svc.status = "inactive";
-        svc.pid = null;
-        svc.logs.push(`[${new Date().toLocaleTimeString()}] Service STOPPED via process termination.`);
-      }
-
-      writeSyslog(`Process terminated: ${proc.name} (PID: ${pid})`);
-      activeProcesses.delete(pid);
-      return true;
-    }
-    return false;
-  };
-
-  const services: DaemonService[] = [];
-
-  const initializeDefaultServices = () => {
-    const list = flavor === "fob" ? [
-      { name: "syslogd.service", description: "System Logging Service" },
-      { name: "auth.service", description: "User Authentication Daemon" },
-      { name: "web-dns.service", description: "Web Page Domain Name Resolver" }
-    ] : [
-      { name: "syslogd.service", description: "System Logging Service" },
-      { name: "auth.service", description: "User Authentication Daemon" },
-      { name: "web-dns.service", description: "Web Page Domain Name Resolver" },
-      { name: "desktop-manager.service", description: "Desktop Windowing & Theme Manager" },
-      { name: "memcleanG.service", description: "Memory Garbage Sweep service" },
-      { name: "audio-server.service", description: "ALSA Audio server daemon" }
-    ];
-
-    if (flavor === "xsi") {
-      list.push({ name: "xsi-ipc-broker.service", description: "XSI IPC Broker daemon" });
-    }
-
-    for (const item of list) {
-      const pid = bootProcess(item.name, true);
-      services.push({
-        name: item.name,
-        description: item.description,
-        status: "active",
-        pid,
-        logs: [`[${new Date().toLocaleTimeString()}] Service spawned during kernel bootstrap with PID ${pid}.`]
-      });
-    }
-  };
-
-  // Perform active default service initiation sequence
-  initializeDefaultServices();
-
-  // Fluctuating process cpu/memory usage over time
-  setInterval(() => {
-    if (kernelPanicState) return;
-    // Check if sysconfig has custom cpu count or flags
-    let cpuScale = 1;
-    try {
-      const cfgNode = resolveNode(vfsRoot, "/etc/sysconfig.json");
-      if (cfgNode && cfgNode.content) {
-        const parsed = JSON.parse(cfgNode.content);
-        if (parsed.kernel_panic_flag === true) {
-          triggerPanic("Kernel Panic: Manual panic flag checked in sysconfig.json!");
-          return;
-        }
-        if (parsed.simulated_cpu_threads) {
-          cpuScale = parsed.simulated_cpu_threads / 4;
-        }
-      }
-    } catch {
-      // ignore parsing errors in periodic ticker
-    }
-
-    // Memory growth simulation when memcleanG (garbage sweep) is dead
-    if (!garbageSweeperActive) {
-      simulatedRamWastedKb += Math.floor(Math.random() * 12000 + 6000); // leak ~6MB to ~18MB every 3s
-      
-      // If leak memory exceeds 180MB, trigger kernel panic! (180,000 KB)
-      if (simulatedRamWastedKb > 180000) {
-        triggerPanic("Kernel Panic: Out of memory (OOM killer failed to reclaim swap space). Service systemd.memcleanG is offline!");
-        return;
-      }
-    } else {
-      // Sweeper is running! Reclaim excess memory slowly
-      if (simulatedRamWastedKb > 0) {
-        simulatedRamWastedKb = Math.max(0, simulatedRamWastedKb - 25000); // clear 25MB on each tick
-      }
-    }
-
-    activeProcesses.forEach((proc) => {
-      if (proc.state === ProcessState.SUSPENDED) {
-        proc.cpuUsage = 0;
-        return;
-      }
-      proc.cpuUsage = isNaN(proc.cpuUsage) ? 0 : Math.max(0, Math.min(100, proc.cpuUsage + Math.floor((Math.random() * 5 - 2) * cpuScale)));
-      
-      if (proc.name === "systemBackgroundProcessD") {
-        proc.memoryUsage = 4096 + simulatedRamWastedKb;
-      } else {
-        proc.memoryUsage = Math.max(256, proc.memoryUsage + Math.floor(Math.random() * 100 - 45));
-      }
-    });
-  }, 3000);
-
-  // SECURE CONTEXT SPECIFIC TOKENS
-  const getSyscallToken = (pid: number): SystemCallInterface => {
-    // Validate PID bounds and values for process validation checks
-    if (isNaN(pid) || pid < 0 || pid > 99999) {
-      triggerPanic(`Kernel Panic: SysCall param initialization failure. Corrupt Process Identifier (PID: ${pid}) received by kernel interrupt lines. General protection fault (GPF) at ring 0.`);
-      throw new Error(`Kernel failed to initialize SysCall parameters. Corrupt PID: ${pid}`);
-    }
-
-    let proc = activeProcesses.get(pid);
-    if (!proc) {
-      if (pid === 99) {
-        // Allocate on-the-fly dummy wrapper context for background queries
-        const dummyProc: Process = {
-          pid: 99,
-          name: "sys_query_wrapper",
-          state: ProcessState.RUNNING,
-          owner: "root",
-          memoryUsage: 2048,
-          cpuUsage: 0,
-          logs: [],
-          startTime: Date.now(),
-          isBackground: true
-        };
-        activeProcesses.set(99, dummyProc);
-        proc = dummyProc;
-      } else {
-        triggerPanic(`Kernel Panic: Failed to initialize SysCall parameters. Virtual Process Control Block (PCB) is truncated, unallocated, or corrupted for Active PID: ${pid}. Instruction Pointer (EIP) contains invalid stack alignment. System execution halted.`);
-        throw new Error(`Kernel failed to initialize SysCall parameters. Process context missing for PID: ${pid}`);
-      }
-    }
-
-    // Direct helper to query `/etc/sysconfig.json` on the filesystem
-    const getSettingsObj = (): any => {
-      try {
-        const configNode = resolveNode(vfsRoot, "/etc/sysconfig.json");
-        if (!configNode || !configNode.content) {
-          triggerPanic("Kernel Panic: Core system configuration `/etc/sysconfig.json` was deleted or unreadable!");
-          return {};
-        }
-        const cfg = JSON.parse(configNode.content);
-        if (cfg.kernel_panic_flag === true) {
-          triggerPanic("Kernel Panic: Manual panic flag activated within `/etc/sysconfig.json`.");
-        }
-        return cfg;
-      } catch (e: any) {
-        triggerPanic(`Kernel Panic: Failed to parse '/etc/sysconfig.json' due to formatting corruption: ${e.message}`);
-        return {};
-      }
-    };
-
-    return {
-      pid,
-
-      readFile: (filePath: string): string => {
-        if (kernelPanicState) return "System Halted: Kernel Panic active.";
-        try {
-          const safePath = filePath.startsWith("/") ? filePath : `/home/${currentLoggedInUser}/${filePath}`;
-          const cfg = getSettingsObj();
-
-          // Check restricted path security
-          const restricted = cfg.restricted_paths || [];
-          if (restricted.includes(safePath) && currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
-            writeSyslog(`Privileges Denied: PID ${pid} (${proc.name}) tried to read restricted system path ${safePath}`);
-            return "Error: Permission denied. Path restricted by system security properties.";
-          }
-
-          // Check home separation permissions
-          if (safePath.startsWith("/home/") && !safePath.startsWith(`/home/${currentLoggedInUser}/`) && currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
-            return "Error: Permission denied. Cannot read home folder directories of other owners.";
-          }
-
-          return readVFSFile(vfsRoot, safePath);
-        } catch {
-          return `Error: file not found or insufficient privileges at '${filePath}'`;
-        }
-      },
-
-      writeFile: (filePath: string, content: string): boolean => {
-        if (kernelPanicState) return false;
-        try {
-          const safePath = filePath.startsWith("/") ? filePath : `/home/${currentLoggedInUser}/${filePath}`;
-          
-          if (safePath.startsWith("/proc") || safePath.startsWith("/sys")) {
-            writeSyslog(`Privileges Denied: PID ${pid} (${proc.name}) attempted writing read-only virtual kernel registries at ${safePath}`);
-            return false;
-          }
-
-          const cfg = getSettingsObj();
-
-          // Check system directories edits
-          const isSystemPath = safePath.startsWith("/bin") || safePath.startsWith("/etc") || safePath.startsWith("/var") || safePath === "/";
-          if (isSystemPath && safePath !== "/var/log/syslog") {
-            const allowWrites = cfg.allow_regular_user_system_writes === true;
-            if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin" && !allowWrites) {
-              writeSyslog(`Privileges Denied: PID ${pid} (${proc.name}) lacks authority to modify system file ${safePath}`);
-              return false;
-            }
-          }
-
-          // Check home directory partition
-          if (safePath.startsWith("/home/") && !safePath.startsWith(`/home/${currentLoggedInUser}/`) && currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
-            writeSyslog(`Privileges Denied: PID ${pid} cannot write inside home folder of another user.`);
-            return false;
-          }
-
-          const success = writeVFSFile(vfsRoot, safePath, content);
-          if (success) {
-            triggerVFSChange();
-            writeSyslog(`File written: ${safePath} by PID ${pid} (${proc.name})`);
-
-            // If updating permissions or config, run real-time audits on panic indicators
-            if (safePath === "/etc/sysconfig.json") {
-              try {
-                const updated = JSON.parse(content);
-                if (updated.kernel_panic_flag === true) {
-                  triggerPanic("Kernel Panic: Triggered via manual write of sysconfig.json!");
-                }
-              } catch {
-                if (cfg.kernel_panic_on_missing_sysconfig === true) {
-                  triggerPanic("Kernel Panic: Invalid sysconfig.json file formatting write! Corrupted JSON halt.");
-                }
-              }
-            }
-          }
-          return success;
-        } catch {
-          return false;
-        }
-      },
-
-      createDirectory: (dirPath: string): boolean => {
-        if (kernelPanicState) return false;
-        try {
-          const safePath = dirPath.startsWith("/") ? dirPath : `/home/${currentLoggedInUser}/${dirPath}`;
-          if (safePath.startsWith("/proc") || safePath.startsWith("/sys")) {
-            return false;
-          }
-
-          const cfg = getSettingsObj();
-          const isSystemPath = safePath.startsWith("/bin") || safePath.startsWith("/etc") || safePath.startsWith("/var") || safePath === "/";
-          if (isSystemPath) {
-            const allowWrites = cfg.allow_regular_user_system_writes === true;
-            if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin" && !allowWrites) {
-              writeSyslog(`Privileges Denied: PID ${pid} lacks write access to make folders in system directories.`);
-              return false;
-            }
-          }
-
-          const success = mkdirVFS(vfsRoot, safePath);
-          if (success) {
-            triggerVFSChange();
-            writeSyslog(`Directory created: ${safePath} by PID ${pid} (${proc.name})`);
-          }
-          return success;
-        } catch {
-          return false;
-        }
-      },
-
-      deleteNode: (nodePath: string): boolean => {
-        if (kernelPanicState) return false;
-        try {
-          const safePath = nodePath.startsWith("/") ? nodePath : `/home/${currentLoggedInUser}/${nodePath}`;
-          if (safePath === "/" || safePath === "/home" || safePath === "/bin" || safePath === "/proc" || safePath === "/sys" || safePath === "/etc") {
-            writeSyslog(`[SECURITY FAILURE] PID ${pid} (${proc.name}) attempted recursive deletion of core systemic folders!`);
-            return false;
-          }
-
-          const cfg = getSettingsObj();
-
-          // Check system path destruction
-          const isSystemPath = safePath.startsWith("/bin") || safePath.startsWith("/etc") || safePath.startsWith("/var");
-          if (isSystemPath) {
-            if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
-              writeSyslog(`Privileges Denied: PID ${pid} is not permitted to erase system file ${safePath}`);
-              return false;
-            }
-          }
-
-          // Case where user deletes configuration file
-          if (safePath === "/etc/sysconfig.json") {
-            const success = deleteVFSNode(vfsRoot, safePath);
-            if (success) {
-              triggerVFSChange();
-              if (cfg.kernel_panic_on_missing_sysconfig === true) {
-                triggerPanic("Kernel Panic: Core configuration file /etc/sysconfig.json was deleted by the user!");
-              }
-            }
-            return success;
-          }
-
-          const success = deleteVFSNode(vfsRoot, safePath);
-          if (success) {
-            triggerVFSChange();
-            writeSyslog(`Deleted node: ${safePath} by PID ${pid} (${proc.name})`);
-          }
-          return success;
-        } catch {
-          return false;
-        }
-      },
-
-      listDir: (dirPath: string) => {
-        if (kernelPanicState) return [];
-        try {
-          const safePath = dirPath.startsWith("/") ? dirPath : `/home/${currentLoggedInUser}/${dirPath}`;
-          
-          if (safePath.startsWith("/home/") && safePath !== "/home" && !safePath.startsWith(`/home/${currentLoggedInUser}/`) && currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
-            return [];
-          }
-
-          return listVFSDir(vfsRoot, safePath);
-        } catch {
-          return [];
-        }
-      },
-
-      getCurrentUser: (): string => {
-        return currentLoggedInUser;
-      },
-
-      getCurrentUserRole: (): string => {
-        return currentLoggedInUserRole;
-      },
-
-      loginUser: (username: string, passwordHash: string): boolean => {
-        return performLogin(username, passwordHash);
-      },
-
-      logoutUser: () => {
-        if (kernelPanicState) return;
-        currentLoggedInUser = "guest";
-        currentLoggedInUserRole = "user";
-        writeSyslog(`[AUTH] Active session closed. User downgraded to guest.`);
-        authListeners.forEach((l) => l("guest", "user"));
-      },
-
-      getSettings: () => {
-        return getSettingsObj();
-      },
-
-      saveSettings: (settingsObj: any): boolean => {
-        if (kernelPanicState) return false;
-        if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
-          return false;
-        }
-        const parsedStr = JSON.stringify(settingsObj, null, 2);
-        const ok = writeVFSFile(vfsRoot, "/etc/sysconfig.json", parsedStr);
-        if (ok) {
-          triggerVFSChange();
-          writeSyslog(`System configuration overridden by PID ${pid} (${proc.name})`);
-          if (settingsObj.kernel_panic_flag === true) {
-            triggerPanic("Kernel Panic: Triggered manually via system settings overlay.");
-          }
-        }
-        return ok;
-      },
-
-      getUsers: () => {
-        try {
-          const f = resolveNode(vfsRoot, "/etc/users.json");
-          return f && f.content ? JSON.parse(f.content) : [];
-        } catch {
-          return [];
-        }
-      },
-
-      addUser: (username: string, passwordHash: string, role: string, fullName: string, avatar: string): boolean => {
-        if (kernelPanicState) return false;
-        if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
-          writeSyslog(`[SECURITY] Lacking rights to add user '${username}'`);
-          return false;
-        }
-        try {
-          const f = resolveNode(vfsRoot, "/etc/users.json");
-          if (!f || !f.content) return false;
-          const ulist = JSON.parse(f.content);
-          if (ulist.some((u: any) => u.username === username)) return false;
-          ulist.push({ username, passwordHash, role, fullName, avatar });
-          
-          const success = writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(ulist, null, 2));
-          if (success) {
-            triggerVFSChange();
-            writeSyslog(`Accounts DB augmented: user '${username}' bounds registered.`);
-            
-            // Generate home workspace directories
-            mkdirVFS(vfsRoot, `/home/${username}`);
-            mkdirVFS(vfsRoot, `/home/${username}/Desktop`);
-            mkdirVFS(vfsRoot, `/home/${username}/Documents`);
-            writeVFSFile(vfsRoot, `/home/${username}/Desktop/AboutMe.txt`, `Welcome ${fullName}! Your user account with ${role} access is ready.`);
-          }
-          return success;
-        } catch {
-          return false;
-        }
-      },
-
-      deleteUser: (username: string): boolean => {
-        if (kernelPanicState) return false;
-        if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
-          return false;
-        }
-        if (username === "root" || username === "tux") {
-          writeSyslog(`[SECURITY WARNING] Admin '${currentLoggedInUser}' attempted removal of built-in system operator: ${username}`);
-          return false;
-        }
-        try {
-          const f = resolveNode(vfsRoot, "/etc/users.json");
-          if (!f || !f.content) return false;
-          let ulist = JSON.parse(f.content);
-          ulist = ulist.filter((u: any) => u.username !== username);
-          
-          const success = writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(ulist, null, 2));
-          if (success) {
-            triggerVFSChange();
-            writeSyslog(`Accounts DB diminished: user '${username}' credentials purged.`);
-          }
-          return success;
-        } catch {
-          return false;
-        }
-      },
-
-      triggerKernelPanic: (message: string) => {
-        triggerPanic(message);
-      },
-
-       getProcesses: () => {
-        return Array.from(activeProcesses.values()).map((p) => ({
-          pid: p.pid,
-          name: p.name,
-          state: p.state,
-          memoryUsage: p.memoryUsage,
-          cpuUsage: p.cpuUsage,
-          owner: p.owner,
-          args: p.args,
-          cwd: p.cwd,
-        }));
-      },
-
-      spawnProcess: (name: string, isBackground = false, args?: string[], cwd?: string): number => {
-        return bootProcess(name, isBackground, args, cwd);
-      },
-
-      suspendProcess: (targetPid: number): boolean => {
-        if (targetPid === 1) return false;
-        const target = activeProcesses.get(targetPid);
-        if (target) {
-          target.state = ProcessState.SUSPENDED;
-          target.cpuUsage = 0;
-          writeSyslog(`Process suspended (SIGSTOP): ${target.name} (PID: ${targetPid})`);
-          return true;
-        }
-        return false;
-      },
-
-      resumeProcess: (targetPid: number): boolean => {
-        const target = activeProcesses.get(targetPid);
-        if (target) {
-          target.state = target.isBackground ? ProcessState.SERVICE : ProcessState.RUNNING;
-          writeSyslog(`Process resumed (SIGCONT): ${target.name} (PID: ${targetPid})`);
-          return true;
-        }
-        return false;
-      },
-
-      spawnCustomProcess: (name: string, owner: string, memory: number, cpu: number, isService: boolean): number => {
-        if (kernelPanicState) {
-          throw new Error("System execution prohibited: Kernel is in a panicked state.");
-        }
-        const pid = nextPid++;
-        const proc: Process = {
-          pid,
-          name,
-          state: isService ? ProcessState.SERVICE : ProcessState.RUNNING,
-          owner: owner || currentLoggedInUser,
-          memoryUsage: memory,
-          cpuUsage: cpu,
-          logs: [`Bespoke custom process ${name} created.`],
-          startTime: Date.now(),
-          isBackground: isService,
-        };
-        activeProcesses.set(pid, proc);
-        writeSyslog(`Process spawned via TLDM Panel: ${name} (PID: ${pid}, Owner: ${proc.owner})`);
-        return pid;
-      },
-
-      killProcess: (targetPid: number): boolean => {
-        if (targetPid === 1) {
-          triggerPanic("Kernel Panic: Attempted SIGKILL on PID 1 (systemBackgroundProcessD) - core daemon missing.");
-          return false;
-        }
-        const target = activeProcesses.get(targetPid);
-        if (!target) return false;
-
-        const cfg = getSettingsObj();
-        if (cfg.restrict_process_kill === true) {
-          if (currentLoggedInUserRole !== "root" && target.owner === "root" && currentLoggedInUserRole !== "admin") {
-            writeSyslog(`Access privileges denied: User '${currentLoggedInUser}' lacks privileges to terminate root processes.`);
-            return false;
-          }
-        }
-
-        return killProcess(targetPid);
-      },
-
-      getServices: (): DaemonService[] => {
-        return JSON.parse(JSON.stringify(services));
-      },
-
-      controlService: (name: string, action: "start" | "stop" | "restart"): boolean => {
-        if (kernelPanicState) return false;
-        const idx = services.findIndex((s) => s.name === name);
-        if (idx === -1) return false;
-
-        writeSyslog(`Service signal routed: control '${name}' requested [${action}] by PID ${pid}`);
-        const service = services[idx];
-
-        if (action === "stop") {
-          if (service.pid) {
-            killProcess(service.pid);
-          }
-          service.status = "inactive";
-          service.pid = null;
-          service.logs.push(`[${new Date().toLocaleTimeString()}] Stopping service.`);
-        } else if (action === "start") {
-          const servicePid = bootProcess(name, true);
-          service.status = "active";
-          service.pid = servicePid;
-          service.logs.push(`[${new Date().toLocaleTimeString()}] Starting systemd service.`);
-        } else if (action === "restart") {
-          if (service.pid) {
-            killProcess(service.pid);
-          }
-          const servicePid = bootProcess(name, true);
-          service.status = "active";
-          service.pid = servicePid;
-          service.logs.push(`[${new Date().toLocaleTimeString()}] Restarted service successfully.`);
-        }
-        return true;
-      },
-
-      syslog: (message: string) => {
-        writeSyslog(`[PID ${pid}][${proc.name}] ${message}`);
-      },
-
-      getLogs: () => {
-        if (!syslogdEnabled) {
-          return ["--- [CRITICAL WARNING: syslogd.service is offline. Syslog buffer is frozen] ---"];
-        }
-        return [...syslogBuffer];
-      },
-    };
-  };
-
-  return {
-    bootProcess,
-    killProcess,
-    getProcesses: () => Array.from(activeProcesses.values()),
-    getKernelVFS: () => JSON.parse(JSON.stringify(vfsRoot)),
-    getSyscallToken,
-    writeSyslog,
-    getSyslogs: () => {
-      if (!syslogdEnabled) {
-        return ["--- [CRITICAL WARNING: syslogd.service is offline. Syslog buffer is frozen] ---"];
-      }
-      return [...syslogBuffer];
-    },
-    registerVFSListener: (listener: (root: VFSNode) => void) => {
-      vfsListeners.add(listener);
-      return () => {
-        vfsListeners.delete(listener);
-      };
-    },
-    // Account system implementation getters
-    getCurrentUser: () => currentLoggedInUser,
-    getCurrentUserRole: () => currentLoggedInUserRole,
-    loginUser: (username: string, passwordHash: string) => {
-      return performLogin(username, passwordHash);
-    },
-    logoutUser: () => {
-      currentLoggedInUser = "guest";
-      currentLoggedInUserRole = "user";
-      writeSyslog(`[AUTH] Session cleared. Reverted to guest.`);
-      authListeners.forEach((l) => l("guest", "user"));
-    },
-    registerAuthListener: (listener: (user: string, role: string) => void) => {
-      authListeners.add(listener);
-      return () => {
-        authListeners.delete(listener);
-      };
-    },
-    testAuthentication: (): { name: string; passed: boolean; message: string }[] => {
-      const results = [];
-      const originalUser = currentLoggedInUser;
-      const originalRole = currentLoggedInUserRole;
-      try {
-        // Test 1: Guest blank password login
-        const t1 = performLogin("guest", "");
-        results.push({ name: "Guest Session (Blank Pwd)", passed: t1, message: t1 ? "Verified: blank credential OK" : "Failed" });
-        
-        // Test 2: Guest alias password login
-        const t2 = performLogin("guest", "guest");
-        results.push({ name: "Guest Session (Alias Pwd)", passed: t2, message: t2 ? "Verified: 'guest' string OK" : "Failed" });
-        
-        // Test 3: Tux login with 'tux' password
-        const t3 = performLogin("tux", "tux");
-        results.push({ name: "Tux Session (tux/tux)", passed: t3, message: t3 ? "Verified: admin credential OK" : "Failed" });
-        
-        // Test 4: Root login with 'root' password
-        const t4 = performLogin("root", "root");
-        results.push({ name: "Root Session (root/root)", passed: t4, message: t4 ? "Verified: superuser credential OK" : "Failed" });
-        
-        // Test 5: Failure on bad credentials
-        const t5 = !performLogin("root", "incorrect_pass_123");
-        results.push({ name: "Incorrect Password Isolation", passed: t5, message: t5 ? "Verified: rejected wrong credentials cleanly" : "Failed" });
-      } catch (e: any) {
-        results.push({ name: "Secure Core Operations Check", passed: false, message: e.message });
-      } finally {
-        currentLoggedInUser = originalUser;
-        currentLoggedInUserRole = originalRole;
-      }
-      return results;
-    },
-    // Disaster recovery indicators
-    isPanicked: () => kernelPanicState,
-    getPanicMessage: () => kernelPanicMessage,
-    triggerPanic: (reason: string) => triggerPanic(reason),
-    registerPanicListener: (listener: (msg: string) => void) => {
-      panicListeners.add(listener);
-      return () => {
-        panicListeners.delete(listener);
-      };
-    },
-    flushVFSToDisk: async () => {
-      writeSyslog(`[SYSTEM] Flushing cached in-memory VFS and settings to persistent IndexedDB...`);
-      return await saveVFSToDisk(vfsRoot);
-    }
-  };
+	let vfsRoot: VFSNode = JSON.parse(JSON.stringify(initialVFS));
+	
+	// ==========================================
+	// VFS SECURITY & SYSTEM SELF-HEALING (FSCK)
+	// ==========================================
+	const healFileSystemNode = () => {
+		try {
+			// 1. Ensure /etc exists
+			const etcNode = resolveNode(vfsRoot, "/etc");
+			if (!etcNode) {
+				mkdirVFS(vfsRoot, "/etc");
+			}
+
+			// Ensure /etc/bootaid.json exists
+			const defaultBootAid = {
+				default: "createSecureKernel",
+				kernels: [
+					{ id: "secure", name: "Standard Secure Kernel", entry: "createSecureKernel", version: "2.6.15-26" }
+				]
+			};
+			const bootaidNode = resolveNode(vfsRoot, "/etc/bootaid.json");
+			if (!bootaidNode || !bootaidNode.content) {
+				writeVFSFile(vfsRoot, "/etc/bootaid.json", JSON.stringify(defaultBootAid, null, 2));
+			}
+
+			// Ensure /proc exists
+			if (!resolveNode(vfsRoot, "/proc")) {
+				mkdirVFS(vfsRoot, "/proc");
+			}
+			let versionStr = "Linux version 2.6.15-26-386 (GCC 4.0.3) PREEMPT GMT 2006";
+			if (flavor === "xsi") {
+				versionStr = "Linux version 2.8.2-xsi-386 (GCC 4.2.1) PREEMPT PRE-RELEASE XSI 2006";
+			} else if (flavor === "fob") {
+				versionStr = "Linux version 1.0.0-fob-core (GCC 3.4.6) SLIM-SMP x86 FOB-OS 2006";
+			}
+			writeVFSFile(vfsRoot, "/proc/version", versionStr);
+
+			// 2. Ensure /etc/users.json exists and is pristine
+			const usersFile = resolveNode(vfsRoot, "/etc/users.json");
+			const defaultUsers = [
+				{ username: "root", passwordHash: "root", role: "root", fullName: "System Administrator", avatar: "system" },
+				{ username: "tux", passwordHash: "tux", role: "admin", fullName: "Tux the Penguin", avatar: "penguin" },
+				{ username: "guest", passwordHash: "", role: "user", fullName: "Guest User", avatar: "guest" }
+			];
+			if (!usersFile || !usersFile.content) {
+				writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(defaultUsers, null, 2));
+			} else {
+				try {
+					const parsed = JSON.parse(usersFile.content);
+					if (!Array.isArray(parsed) || !parsed.some(u => u.username === "guest") || !parsed.some(u => u.username === "tux")) {
+						writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(defaultUsers, null, 2));
+					}
+				} catch {
+					writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(defaultUsers, null, 2));
+				}
+			}
+
+			// 3. Ensure /etc/sysconfig.json exists
+			const configNode = resolveNode(vfsRoot, "/etc/sysconfig.json");
+			const defaultSettings = {
+				hostname: "tux-dapper-2006",
+				dns_primary: "8.8.8.8",
+				networking_enabled: true,
+				system_sound: true,
+				wallpaper_style: "Classic Blue",
+				custom_wallpaper_color_1: "#2b5c8f",
+				custom_wallpaper_color_2: "#5086c1",
+				syslog_verbosity: "INFO",
+				allow_regular_user_system_writes: false,
+				restrict_process_kill: true,
+				allow_guest_terminal: true,
+				simulated_cpu_threads: 4,
+				show_welcome_tip: true,
+				system_locked: false,
+				kernel_panic_on_missing_sysconfig: true,
+				kernel_panic_flag: false
+			};
+			if (!configNode || !configNode.content) {
+				writeVFSFile(vfsRoot, "/etc/sysconfig.json", JSON.stringify(defaultSettings, null, 2));
+			} else {
+				try {
+					JSON.parse(configNode.content);
+				} catch {
+					writeVFSFile(vfsRoot, "/etc/sysconfig.json", JSON.stringify(defaultSettings, null, 2));
+				}
+			}
+
+			// Ensure /etc/customAppRegistry.json exists
+			const registryNode = resolveNode(vfsRoot, "/etc/customAppRegistry.json");
+			const defaultApps = [
+				{
+					id: "desktopEnv",
+					name: "Desktop Environment",
+					description: "Core window supervisor, start panels, shortcuts, and global skeuomorphic context managers",
+					version: "1.0.0",
+					dependencies: ["Kernel", "syslog.service"],
+					author: "TrashLinux Core Development Group",
+					path: "/bin/desktop",
+					pathType: "internal"
+				},
+				{
+					id: "terminalUF",
+					name: "Command Terminal",
+					description: "Terminal shell with standard command emulation, process spawners, and local environment bindings",
+					version: "1.0.0",
+					dependencies: ["VFS"],
+					author: "GNU Terminal Project",
+					icon: "terminal",
+					path: "/bin/terminal",
+					pathType: "internal"
+				},
+				{
+					id: "fileManagerUF",
+					name: "File Explorer",
+					description: "File tree navigation suite and visual disk explorer",
+					version: "1.0.0",
+					dependencies: ["VFS"],
+					author: "Nautilus File Manager Group",
+					icon: "folder",
+					path: "/bin/filemanager",
+					pathType: "internal"
+				},
+				{
+					id: "leafpadUF",
+					name: "Text Editor",
+					description: "Lightweight, distraction-free document writer and editor",
+					version: "1.0.0",
+					dependencies: ["VFS"],
+					author: "LXDE Group",
+					icon: "file-text",
+					path: "/bin/leafpad",
+					pathType: "internal"
+				},
+				{
+					id: "systemMonitorUFD",
+					name: "System Monitor",
+					description: "Process monitor, daemon service status manager, and threat control console",
+					version: "1.0.0",
+					dependencies: ["Kernel"],
+					author: "Sysinternals Logging Division",
+					icon: "cpu",
+					path: "/bin/sysmonitor",
+					pathType: "internal"
+				},
+				{
+					id: "minesweeperUF",
+					name: "Minesweeper Game",
+					description: "Classic retro logic puzzle board game with customizable grids",
+					version: "1.0.0",
+					dependencies: [],
+					author: "Retro Classics Inc",
+					icon: "gamepad",
+					path: "/bin/minesweeper",
+					pathType: "internal"
+				},
+				{
+					id: "surferUF",
+					name: "Web Browser",
+					description: "Text-based HTML visualizer and DNS lookup client",
+					version: "1.0.0",
+					dependencies: ["syslog.service"],
+					author: "CERN Hackers Group",
+					icon: "globe",
+					path: "/bin/browser",
+					pathType: "internal"
+				},
+				{
+					id: "controlPanelUFD",
+					name: "System Settings",
+					description: "Users account administrator and general configuration flags setup",
+					version: "1.0.0",
+					dependencies: ["Kernel"],
+					author: "TrashLinux Admin Foundation",
+					icon: "settings",
+					path: "/bin/settings",
+					pathType: "internal"
+				},
+				{
+					id: "themeManagerUF",
+					name: "Theme Configurator",
+					description: "Visual customizer for skeuomorphic borders, solid/gradient desktop wallpapers, custom CSS code injections, and system-wide CSS selectors rules engine",
+					version: "1.0.0",
+					dependencies: ["VFS"],
+					author: "XFCE Customization Labs",
+					icon: "palette",
+					path: "/bin/theme",
+					pathType: "internal"
+				},
+				{
+					id: "imageViewerUF",
+					name: "Image Viewer",
+					description: "A fast layout graphic browser supporting simple images and canvas pixels",
+					version: "1.0.0",
+					dependencies: ["VFS"],
+					author: "GNOME Media Developers",
+					icon: "image",
+					path: "/bin/imageview",
+					pathType: "internal"
+				},
+				{
+					id: "videoPlayerUF",
+					name: "Video Player",
+					description: "Visual stream media window rendering offline files and logs",
+					version: "1.0.0",
+					dependencies: ["VFS"],
+					author: "VideoLAN Team",
+					icon: "video",
+					path: "/bin/videoplay",
+					pathType: "internal"
+				},
+				{
+					id: "musicPlayerUF",
+					name: "Music Player",
+					description: "Audio playlist utility to play music streams and tracks in retro skins",
+					version: "1.0.0",
+					dependencies: ["VFS"],
+					author: "XMMS Music Player Group",
+					icon: "music",
+					path: "/bin/musicplay",
+					pathType: "internal"
+				},
+				{
+					id: "appRegistryUF",
+					name: "App Registry Manager",
+					description: "Administrative console to dynamic app registry configurations, dependencies, authors, and version bumps",
+					version: "1.0.0",
+					dependencies: ["VFS"],
+					author: "System Registry Software Foundation",
+					icon: "layout",
+					path: "/bin/appreg",
+					pathType: "internal"
+				},
+				{
+					id: "myCustomApp",
+					name: "Dynamic Custom App",
+					description: "Live compiled TSX application loaded from the VFS registry space",
+					version: "1.0.0",
+					dependencies: ["VFS"],
+					author: "guest",
+					icon: "layout",
+					path: "/home/guest/custom_app.tsx",
+					pathType: "internal"
+				}
+			];
+			if (!registryNode || !registryNode.content) {
+				writeVFSFile(vfsRoot, "/etc/customAppRegistry.json", JSON.stringify(defaultApps, null, 2));
+			} else {
+				try {
+					JSON.parse(registryNode.content);
+				} catch {
+					writeVFSFile(vfsRoot, "/etc/customAppRegistry.json", JSON.stringify(defaultApps, null, 2));
+				}
+			}
+
+			// 4. Ensure /home/guest, /home/tux, /home/root structure
+			const userHomes = ["guest", "tux", "root"];
+			for (const username of userHomes) {
+				if (!resolveNode(vfsRoot, `/home/${username}`)) {
+					mkdirVFS(vfsRoot, `/home/${username}`);
+					mkdirVFS(vfsRoot, `/home/${username}/Desktop`);
+					mkdirVFS(vfsRoot, `/home/${username}/Documents`);
+				}
+				
+				// Seed default poor-quality media files for player apps
+				if (username !== "root") {
+					const deskPath = `/home/${username}/Desktop`;
+					if (!resolveNode(vfsRoot, `${deskPath}/classic_sunset.jpg`)) {
+						writeVFSFile(vfsRoot, `${deskPath}/classic_sunset.jpg`, `[IMAGE_SUNSET_MOCK] width=64;height=64;pixels=orange,sunset,retro;title=Vintage Sunset 2006`);
+					}
+					if (!resolveNode(vfsRoot, `${deskPath}/retro_vibes.mp3`)) {
+						writeVFSFile(vfsRoot, `${deskPath}/retro_vibes.mp3`, `[AUDIO_CHIPTUNE_MOCK] tempo=130;melody=C4,D4,E4,G4,A4,C5,E5;noise=high;title=Vintage Chiptune`);
+					}
+					if (!resolveNode(vfsRoot, `${deskPath}/matrix_screensaver.mp4`)) {
+						writeVFSFile(vfsRoot, `${deskPath}/matrix_screensaver.mp4`, `[VIDEO_MATRIX_MOCK] fps=4;resolution=32x24;color=matrix;title=Matrix Code Screen`);
+					}
+					if (!resolveNode(vfsRoot, `${deskPath}/ThemeConfigurator.desktop`)) {
+						writeVFSFile(vfsRoot, `${deskPath}/ThemeConfigurator.desktop`, "Exec=themeManager\nIcon=palette");
+					}
+				}
+			}
+		} catch (e) {
+			console.error("[FSCK] Failed to self-heal VFS:", e);
+		}
+	};
+
+	healFileSystemNode();
+
+	const activeProcesses: Map<number, Process> = new Map();
+	let nextPid = 1;
+
+	// Global user session variables
+	let currentLoggedInUser = "guest";
+	let currentLoggedInUserRole = "user";
+
+	// Kernel panic status indicators
+	let kernelPanicState = false;
+	let kernelPanicMessage = "";
+
+	// ==========================================
+	// DAEMON VITAL STATE MANAGEMENT
+	// ==========================================
+	let syslogdEnabled = true;
+	let authEnabled = true;
+	let dnsResolverActive = true;
+	let desktopManagerActive = true;
+	let garbageSweeperActive = true;
+	let soundServerActive = true;
+	let simulatedRamWastedKb = 0;
+	let systemInitPid = -1;
+
+	const syslogBuffer: string[] = [
+		`[${new Date().toISOString()}] Kernel init successful. Encapsulation barriers active.`,
+		`[${new Date().toISOString()}] PID hashing salt initialized.`,
+		`[${new Date().toISOString()}] Security sub-system ready. Default user set to 'guest'.`
+	];
+
+	const vfsListeners: Set<(root: VFSNode) => void> = new Set();
+	const authListeners: Set<(user: string, role: string) => void> = new Set();
+	const panicListeners: Set<(msg: string) => void> = new Set();
+
+	const triggerVFSChange = () => {
+		const deepCopy = JSON.parse(JSON.stringify(vfsRoot));
+		vfsListeners.forEach((listener) => listener(deepCopy));
+	};
+
+	const writeSyslog = (msg: string) => {
+		if (!syslogdEnabled) return;
+		const timestamp = new Date().toLocaleTimeString();
+		const log = `[${timestamp}] ${msg}`;
+		syslogBuffer.push(log);
+		if (syslogBuffer.length > 500) {
+			syslogBuffer.shift();
+		}
+		const logNode = resolveNode(vfsRoot, "/var/log/syslog");
+		if (logNode && logNode.type === NodeType.FILE) {
+			logNode.content = (logNode.content ?? "") + `\n${log}`;
+		}
+	};
+
+	const performLogin = (username: string, passwordHash: string): boolean => {
+		if (kernelPanicState) return false;
+		if (!authEnabled) {
+			writeSyslog(`[AUTH] Failed to authenticate on username '${username}' - auth.service is OFFLINE!`);
+			return false;
+		}
+		try {
+			// Dynamic healing in case file is modified or deleted mid-session
+			healFileSystemNode();
+
+			const usersFile = resolveNode(vfsRoot, "/etc/users.json");
+			if (!usersFile || !usersFile.content) {
+				writeSyslog(`[AUTH] Failed to resolve credential tree /etc/users.json`);
+				return false;
+			}
+			const users = JSON.parse(usersFile.content);
+			const found = users.find((u: any) => u.username === username);
+			if (found) {
+				const isMatch =
+					found.passwordHash === passwordHash ||
+					found.passwordHash === "" ||
+					(username === "tux" && (passwordHash === "tux" || passwordHash === "tux2006")) ||
+					(username === "root" && (passwordHash === "root" || passwordHash === "root2006")) ||
+					(username === "guest" && (passwordHash === "guest" || passwordHash === ""));
+
+				if (isMatch) {
+					currentLoggedInUser = username;
+					currentLoggedInUserRole = found.role;
+					writeSyslog(`[AUTH] Session established for user '${username}' [Role: ${found.role}]`);
+					authListeners.forEach((l) => l(username, found.role));
+					return true;
+				}
+			}
+		} catch (e: any) {
+			writeSyslog(`[AUTH] Error parsing user logins: ${e.message}`);
+		}
+		return false;
+	};
+
+	const triggerPanic = (reason: string, customStack?: string) => {
+		if (kernelPanicState) return;
+		kernelPanicState = true;
+		
+		// Auto-generate a detailed virtual backtrace if none provided
+		const stack = customStack || new Error("Kernel Backtrace Generated").stack || "No stack trace trace buffer recorded.";
+		kernelPanicMessage = `${reason}\n\nSTACK_TRACE:\n${stack}`;
+		syslogdEnabled = true; // Force-enable log streams for post-mortem dump
+		writeSyslog(`[CRITICAL PANIC] ${reason}`);
+		writeSyslog(`[BACKTRACE] ${stack}`);
+		saveVFSToDisk(vfsRoot); // Try flush VFS
+		panicListeners.forEach((l) => l(kernelPanicMessage));
+	};
+
+	// Base processes list
+	const bootProcess = (name: string, isBackground = false, args?: string[], cwd?: string): number => {
+		if (kernelPanicState) {
+			throw new Error("System execution prohibited: Kernel is in a panicked state.");
+		}
+
+		// Parameters type integrity validation checks
+		if (typeof name !== "string" || name.trim() === "") {
+			const err = new Error("Invalid pid parameters: Process name must be a non-empty string descriptor.");
+			triggerPanic("Kernel Panic: SysCall bootProcess param initialization failed. Empty or corrupt name descriptor.", err.stack);
+			throw err;
+		}
+
+		if (cwd && (typeof cwd !== "string" || !cwd.startsWith("/") || cwd.includes("//") || cwd.includes("/../"))) {
+			const err = new Error("Invalid pid parameters: Malformed, relative, or directory-traversed CWD path.");
+			triggerPanic(`Kernel Panic: Syscall bootProcess CWD validation exception for process '${name}': '${cwd}'`, err.stack);
+			throw err;
+		}
+
+		const pid = nextPid++;
+		
+		// Store systemInitPid when systemBackgroundProcessD boots
+		if (name === "systemBackgroundProcessD") {
+			systemInitPid = pid;
+		}
+
+		const isServiceOrSystem = name.endsWith(".service") || name === "systemBackgroundProcessD" || name === "kernel";
+		const procDefOwner = isServiceOrSystem ? "root" : currentLoggedInUser;
+
+		const proc: Process = {
+			pid,
+			name,
+			state: isBackground ? ProcessState.SERVICE : ProcessState.RUNNING,
+			owner: procDefOwner,
+			memoryUsage: name === "systemBackgroundProcessD" ? (4096 + simulatedRamWastedKb) : Math.floor(1024 + Math.random() * 4096),
+			cpuUsage: Math.floor(Math.random() * 5),
+			logs: [],
+			startTime: Date.now(),
+			isBackground,
+			args,
+			cwd,
+		};
+
+		// Attach onStarted and onStopped hook handlers for vital services
+		if (name === "syslogd.service") {
+			proc.onStarted = () => {
+				syslogdEnabled = true;
+				writeSyslog("[syslogd] Logging daemon initialized. System events are now tracked.");
+			};
+			proc.onStopped = () => {
+				syslogdEnabled = false;
+				// Logs offline notice to be seen after reboot or service restart
+				console.warn("syslogd stopped! System events are now frozen.");
+			};
+		} else if (name === "auth.service") {
+			proc.onStarted = () => {
+				authEnabled = true;
+				writeSyslog("[auth-daemon] Security auth.service active. Session management protocols loaded.");
+			};
+			proc.onStopped = () => {
+				authEnabled = false;
+				writeSyslog("[auth-daemon] [CRITICAL] auth.service terminated! Warning: Authentication subsystem is offline. New login connections will fail.");
+			};
+		} else if (name === "web-dns.service") {
+			proc.onStarted = () => {
+				dnsResolverActive = true;
+				writeSyslog("[web-dns] DNS resolver daemon started on root loopback. Web browsing is online.");
+			};
+			proc.onStopped = () => {
+				dnsResolverActive = false;
+				writeSyslog("[web-dns] [WARNING] web-dns.service offline. Web searches and external page queries will return DNS lookup timeout errors.");
+			};
+		} else if (name === "desktop-manager.service") {
+			proc.onStarted = () => {
+				desktopManagerActive = true;
+				writeSyslog("[desktop-manager] GNOME/KDE theme and panel overlay composite system online.");
+			};
+			proc.onStopped = () => {
+				desktopManagerActive = false;
+				writeSyslog("[desktop-manager] [WARNING] desktop-manager.service was terminated. Composite frame performance degraded.");
+			};
+		} else if (name === "memcleanG.service") {
+			proc.onStarted = () => {
+				garbageSweeperActive = true;
+				writeSyslog("[memcleanG] Garbage cleaner active. Virtual swap buffers monitoring memory space.");
+			};
+			proc.onStopped = () => {
+				garbageSweeperActive = false;
+				writeSyslog("[memcleanG] [CRITICAL] memcleanG.service terminated! Out-of-memory hazard active. RAM leaks will swell memory usage.");
+			};
+		} else if (name === "audio-server.service") {
+			proc.onStarted = () => {
+				soundServerActive = true;
+				writeSyslog("[audio-server] ALSA Audio server active. Audio driver lines mounted.");
+			};
+			proc.onStopped = () => {
+				soundServerActive = false;
+				writeSyslog("[audio-server] [WARNING] ALSA Audio server stopped. Beep syntax and play operations will be silent.");
+			};
+		} else if (name === "xsi-ipc-broker.service") {
+			proc.onStarted = () => {
+				writeSyslog("[xsi-ipc-broker] IPC broker daemon active. Shared locks and dynamic page namespaces mounted.");
+			};
+			proc.onStopped = () => {
+				writeSyslog("[xsi-ipc-broker] [CRITICAL] IPC broker daemon terminated! IPC channels collapsed.");
+			};
+		}
+
+		activeProcesses.set(pid, proc);
+		writeSyslog(`Process spawned: ${name} (PID: ${pid}, Owner: ${proc.owner}, Cwd: ${cwd || "/"}, Args: ${JSON.stringify(args || [])})`);
+		
+		if (proc.onStarted) {
+			try {
+				proc.onStarted();
+			} catch (err) {
+				console.error(`Error executing onStarted for ${name}:`, err);
+			}
+		}
+		return pid;
+	};
+
+	const killProcess = (pid: number): boolean => {
+		if (pid === systemInitPid) {
+			triggerPanic("Kernel Panic: Attempted kill on system Init Daemon (systemBackgroundProcessD) - core process missing! System halted.");
+			return false;
+		}
+		const proc = activeProcesses.get(pid);
+		if (proc) {
+			// Invoke onStopped if defined
+			if (proc.onStopped) {
+				try {
+					proc.onStopped();
+				} catch (err) {
+					console.error(`Error in onStopped for ${proc.name}:`, err);
+				}
+			}
+			
+			// Update its service entry if it's a registered service
+			const svc = services.find(s => s.name === proc.name);
+			if (svc) {
+				svc.status = "inactive";
+				svc.pid = null;
+				svc.logs.push(`[${new Date().toLocaleTimeString()}] Service STOPPED via process termination.`);
+			}
+
+			writeSyslog(`Process terminated: ${proc.name} (PID: ${pid})`);
+			activeProcesses.delete(pid);
+			return true;
+		}
+		return false;
+	};
+
+	const services: DaemonService[] = [];
+
+	const initializeDefaultServices = () => {
+		const list = flavor === "fob" ? [
+			{ name: "syslogd.service", description: "System Logging Service" },
+			{ name: "auth.service", description: "User Authentication Daemon" },
+			{ name: "web-dns.service", description: "Web Page Domain Name Resolver" }
+		] : [
+			{ name: "syslogd.service", description: "System Logging Service" },
+			{ name: "auth.service", description: "User Authentication Daemon" },
+			{ name: "web-dns.service", description: "Web Page Domain Name Resolver" },
+			{ name: "desktop-manager.service", description: "Desktop Windowing & Theme Manager" },
+			{ name: "memcleanG.service", description: "Memory Garbage Sweep service" },
+			{ name: "audio-server.service", description: "ALSA Audio server daemon" }
+		];
+
+		if (flavor === "xsi") {
+			list.push({ name: "xsi-ipc-broker.service", description: "XSI IPC Broker daemon" });
+		}
+
+		for (const item of list) {
+			const pid = bootProcess(item.name, true);
+			services.push({
+				name: item.name,
+				description: item.description,
+				status: "active",
+				pid,
+				logs: [`[${new Date().toLocaleTimeString()}] Service spawned during kernel bootstrap with PID ${pid}.`]
+			});
+		}
+	};
+
+	// Perform active default service initiation sequence
+	initializeDefaultServices();
+
+	// Fluctuating process cpu/memory usage over time
+	setInterval(() => {
+		if (kernelPanicState) return;
+		// Check if sysconfig has custom cpu count or flags
+		let cpuScale = 1;
+		try {
+			const cfgNode = resolveNode(vfsRoot, "/etc/sysconfig.json");
+			if (cfgNode && cfgNode.content) {
+				const parsed = JSON.parse(cfgNode.content);
+				if (parsed.kernel_panic_flag === true) {
+					triggerPanic("Kernel Panic: Manual panic flag checked in sysconfig.json!");
+					return;
+				}
+				if (parsed.simulated_cpu_threads) {
+					cpuScale = parsed.simulated_cpu_threads / 4;
+				}
+			}
+		} catch {
+			// ignore parsing errors in periodic ticker
+		}
+
+		// Memory growth simulation when memcleanG (garbage sweep) is dead
+		if (!garbageSweeperActive) {
+			simulatedRamWastedKb += Math.floor(Math.random() * 12000 + 6000); // leak ~6MB to ~18MB every 3s
+			
+			// If leak memory exceeds 180MB, trigger kernel panic! (180,000 KB)
+			if (simulatedRamWastedKb > 180000) {
+				triggerPanic("Kernel Panic: Out of memory (OOM killer failed to reclaim swap space). Service systemd.memcleanG is offline!");
+				return;
+			}
+		} else {
+			// Sweeper is running! Reclaim excess memory slowly
+			if (simulatedRamWastedKb > 0) {
+				simulatedRamWastedKb = Math.max(0, simulatedRamWastedKb - 25000); // clear 25MB on each tick
+			}
+		}
+
+		activeProcesses.forEach((proc) => {
+			if (proc.state === ProcessState.SUSPENDED) {
+				proc.cpuUsage = 0;
+				return;
+			}
+			proc.cpuUsage = isNaN(proc.cpuUsage) ? 0 : Math.max(0, Math.min(100, proc.cpuUsage + Math.floor((Math.random() * 5 - 2) * cpuScale)));
+			
+			if (proc.name === "systemBackgroundProcessD") {
+				proc.memoryUsage = 4096 + simulatedRamWastedKb;
+			} else {
+				proc.memoryUsage = Math.max(256, proc.memoryUsage + Math.floor(Math.random() * 100 - 45));
+			}
+		});
+	}, 3000);
+
+	// SECURE CONTEXT SPECIFIC TOKENS
+	const getSyscallToken = (pid: number): SystemCallInterface => {
+		// Validate PID bounds and values for process validation checks
+		if (isNaN(pid) || pid < 0 || pid > 99999) {
+			triggerPanic(`Kernel Panic: SysCall param initialization failure. Corrupt Process Identifier (PID: ${pid}) received by kernel interrupt lines. General protection fault (GPF) at ring 0.`);
+			throw new Error(`Kernel failed to initialize SysCall parameters. Corrupt PID: ${pid}`);
+		}
+
+		let proc = activeProcesses.get(pid);
+		if (!proc) {
+			if (pid === 99) {
+				// Allocate on-the-fly dummy wrapper context for background queries
+				const dummyProc: Process = {
+					pid: 99,
+					name: "sys_query_wrapper",
+					state: ProcessState.RUNNING,
+					owner: "root",
+					memoryUsage: 2048,
+					cpuUsage: 0,
+					logs: [],
+					startTime: Date.now(),
+					isBackground: true
+				};
+				activeProcesses.set(99, dummyProc);
+				proc = dummyProc;
+			} else {
+				triggerPanic(`Kernel Panic: Failed to initialize SysCall parameters. Virtual Process Control Block (PCB) is truncated, unallocated, or corrupted for Active PID: ${pid}. Instruction Pointer (EIP) contains invalid stack alignment. System execution halted.`);
+				throw new Error(`Kernel failed to initialize SysCall parameters. Process context missing for PID: ${pid}`);
+			}
+		}
+
+		// Direct helper to query `/etc/sysconfig.json` on the filesystem
+		const getSettingsObj = (): any => {
+			try {
+				const configNode = resolveNode(vfsRoot, "/etc/sysconfig.json");
+				if (!configNode || !configNode.content) {
+					triggerPanic("Kernel Panic: Core system configuration `/etc/sysconfig.json` was deleted or unreadable!");
+					return {};
+				}
+				const cfg = JSON.parse(configNode.content);
+				if (cfg.kernel_panic_flag === true) {
+					triggerPanic("Kernel Panic: Manual panic flag activated within `/etc/sysconfig.json`.");
+				}
+				return cfg;
+			} catch (e: any) {
+				triggerPanic(`Kernel Panic: Failed to parse '/etc/sysconfig.json' due to formatting corruption: ${e.message}`);
+				return {};
+			}
+		};
+
+		return {
+			pid,
+
+			readFile: (filePath: string): string => {
+				if (kernelPanicState) return "System Halted: Kernel Panic active.";
+				try {
+					const safePath = filePath.startsWith("/") ? filePath : `/home/${currentLoggedInUser}/${filePath}`;
+					const cfg = getSettingsObj();
+
+					// Check restricted path security
+					const restricted = cfg.restricted_paths || [];
+					if (restricted.includes(safePath) && currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
+						writeSyslog(`Privileges Denied: PID ${pid} (${proc.name}) tried to read restricted system path ${safePath}`);
+						return "Error: Permission denied. Path restricted by system security properties.";
+					}
+
+					// Check home separation permissions
+					if (safePath.startsWith("/home/") && !safePath.startsWith(`/home/${currentLoggedInUser}/`) && currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
+						return "Error: Permission denied. Cannot read home folder directories of other owners.";
+					}
+
+					return readVFSFile(vfsRoot, safePath);
+				} catch {
+					return `Error: file not found or insufficient privileges at '${filePath}'`;
+				}
+			},
+
+			writeFile: (filePath: string, content: string): boolean => {
+				if (kernelPanicState) return false;
+				try {
+					const safePath = filePath.startsWith("/") ? filePath : `/home/${currentLoggedInUser}/${filePath}`;
+					
+					if (safePath.startsWith("/proc") || safePath.startsWith("/sys")) {
+						writeSyslog(`Privileges Denied: PID ${pid} (${proc.name}) attempted writing read-only virtual kernel registries at ${safePath}`);
+						return false;
+					}
+
+					const cfg = getSettingsObj();
+
+					// Check system directories edits
+					const isSystemPath = safePath.startsWith("/bin") || safePath.startsWith("/etc") || safePath.startsWith("/var") || safePath === "/";
+					if (isSystemPath && safePath !== "/var/log/syslog") {
+						const allowWrites = cfg.allow_regular_user_system_writes === true;
+						if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin" && !allowWrites) {
+							writeSyslog(`Privileges Denied: PID ${pid} (${proc.name}) lacks authority to modify system file ${safePath}`);
+							return false;
+						}
+					}
+
+					// Check home directory partition
+					if (safePath.startsWith("/home/") && !safePath.startsWith(`/home/${currentLoggedInUser}/`) && currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
+						writeSyslog(`Privileges Denied: PID ${pid} cannot write inside home folder of another user.`);
+						return false;
+					}
+
+					const success = writeVFSFile(vfsRoot, safePath, content);
+					if (success) {
+						triggerVFSChange();
+						writeSyslog(`File written: ${safePath} by PID ${pid} (${proc.name})`);
+
+						// If updating permissions or config, run real-time audits on panic indicators
+						if (safePath === "/etc/sysconfig.json") {
+							try {
+								const updated = JSON.parse(content);
+								if (updated.kernel_panic_flag === true) {
+									triggerPanic("Kernel Panic: Triggered via manual write of sysconfig.json!");
+								}
+							} catch {
+								if (cfg.kernel_panic_on_missing_sysconfig === true) {
+									triggerPanic("Kernel Panic: Invalid sysconfig.json file formatting write! Corrupted JSON halt.");
+								}
+							}
+						}
+					}
+					return success;
+				} catch {
+					return false;
+				}
+			},
+
+			createDirectory: (dirPath: string): boolean => {
+				if (kernelPanicState) return false;
+				try {
+					const safePath = dirPath.startsWith("/") ? dirPath : `/home/${currentLoggedInUser}/${dirPath}`;
+					if (safePath.startsWith("/proc") || safePath.startsWith("/sys")) {
+						return false;
+					}
+
+					const cfg = getSettingsObj();
+					const isSystemPath = safePath.startsWith("/bin") || safePath.startsWith("/etc") || safePath.startsWith("/var") || safePath === "/";
+					if (isSystemPath) {
+						const allowWrites = cfg.allow_regular_user_system_writes === true;
+						if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin" && !allowWrites) {
+							writeSyslog(`Privileges Denied: PID ${pid} lacks write access to make folders in system directories.`);
+							return false;
+						}
+					}
+
+					const success = mkdirVFS(vfsRoot, safePath);
+					if (success) {
+						triggerVFSChange();
+						writeSyslog(`Directory created: ${safePath} by PID ${pid} (${proc.name})`);
+					}
+					return success;
+				} catch {
+					return false;
+				}
+			},
+
+			deleteNode: (nodePath: string): boolean => {
+				if (kernelPanicState) return false;
+				try {
+					const safePath = nodePath.startsWith("/") ? nodePath : `/home/${currentLoggedInUser}/${nodePath}`;
+					if (safePath === "/" || safePath === "/home" || safePath === "/bin" || safePath === "/proc" || safePath === "/sys" || safePath === "/etc") {
+						writeSyslog(`[SECURITY FAILURE] PID ${pid} (${proc.name}) attempted recursive deletion of core systemic folders!`);
+						return false;
+					}
+
+					const cfg = getSettingsObj();
+
+					// Check system path destruction
+					const isSystemPath = safePath.startsWith("/bin") || safePath.startsWith("/etc") || safePath.startsWith("/var");
+					if (isSystemPath) {
+						if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
+							writeSyslog(`Privileges Denied: PID ${pid} is not permitted to erase system file ${safePath}`);
+							return false;
+						}
+					}
+
+					// Case where user deletes configuration file
+					if (safePath === "/etc/sysconfig.json") {
+						const success = deleteVFSNode(vfsRoot, safePath);
+						if (success) {
+							triggerVFSChange();
+							if (cfg.kernel_panic_on_missing_sysconfig === true) {
+								triggerPanic("Kernel Panic: Core configuration file /etc/sysconfig.json was deleted by the user!");
+							}
+						}
+						return success;
+					}
+
+					const success = deleteVFSNode(vfsRoot, safePath);
+					if (success) {
+						triggerVFSChange();
+						writeSyslog(`Deleted node: ${safePath} by PID ${pid} (${proc.name})`);
+					}
+					return success;
+				} catch {
+					return false;
+				}
+			},
+
+			listDir: (dirPath: string) => {
+				if (kernelPanicState) return [];
+				try {
+					const safePath = dirPath.startsWith("/") ? dirPath : `/home/${currentLoggedInUser}/${dirPath}`;
+					
+					if (safePath.startsWith("/home/") && safePath !== "/home" && !safePath.startsWith(`/home/${currentLoggedInUser}/`) && currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
+						return [];
+					}
+
+					return listVFSDir(vfsRoot, safePath);
+				} catch {
+					return [];
+				}
+			},
+
+			getCurrentUser: (): string => {
+				return currentLoggedInUser;
+			},
+
+			getCurrentUserRole: (): string => {
+				return currentLoggedInUserRole;
+			},
+
+			loginUser: (username: string, passwordHash: string): boolean => {
+				return performLogin(username, passwordHash);
+			},
+
+			logoutUser: () => {
+				if (kernelPanicState) return;
+				currentLoggedInUser = "guest";
+				currentLoggedInUserRole = "user";
+				writeSyslog(`[AUTH] Active session closed. User downgraded to guest.`);
+				authListeners.forEach((l) => l("guest", "user"));
+			},
+
+			getSettings: () => {
+				return getSettingsObj();
+			},
+
+			saveSettings: (settingsObj: any): boolean => {
+				if (kernelPanicState) return false;
+				if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
+					return false;
+				}
+				const parsedStr = JSON.stringify(settingsObj, null, 2);
+				const ok = writeVFSFile(vfsRoot, "/etc/sysconfig.json", parsedStr);
+				if (ok) {
+					triggerVFSChange();
+					writeSyslog(`System configuration overridden by PID ${pid} (${proc.name})`);
+					if (settingsObj.kernel_panic_flag === true) {
+						triggerPanic("Kernel Panic: Triggered manually via system settings overlay.");
+					}
+				}
+				return ok;
+			},
+
+			getUsers: () => {
+				try {
+					const f = resolveNode(vfsRoot, "/etc/users.json");
+					return f && f.content ? JSON.parse(f.content) : [];
+				} catch {
+					return [];
+				}
+			},
+
+			addUser: (username: string, passwordHash: string, role: string, fullName: string, avatar: string): boolean => {
+				if (kernelPanicState) return false;
+				if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
+					writeSyslog(`[SECURITY] Lacking rights to add user '${username}'`);
+					return false;
+				}
+				try {
+					const f = resolveNode(vfsRoot, "/etc/users.json");
+					if (!f || !f.content) return false;
+					const ulist = JSON.parse(f.content);
+					if (ulist.some((u: any) => u.username === username)) return false;
+					ulist.push({ username, passwordHash, role, fullName, avatar });
+					
+					const success = writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(ulist, null, 2));
+					if (success) {
+						triggerVFSChange();
+						writeSyslog(`Accounts DB augmented: user '${username}' bounds registered.`);
+						
+						// Generate home workspace directories
+						mkdirVFS(vfsRoot, `/home/${username}`);
+						mkdirVFS(vfsRoot, `/home/${username}/Desktop`);
+						mkdirVFS(vfsRoot, `/home/${username}/Documents`);
+						writeVFSFile(vfsRoot, `/home/${username}/Desktop/AboutMe.txt`, `Welcome ${fullName}! Your user account with ${role} access is ready.`);
+					}
+					return success;
+				} catch {
+					return false;
+				}
+			},
+
+			deleteUser: (username: string): boolean => {
+				if (kernelPanicState) return false;
+				if (currentLoggedInUserRole !== "root" && currentLoggedInUserRole !== "admin") {
+					return false;
+				}
+				if (username === "root" || username === "tux") {
+					writeSyslog(`[SECURITY WARNING] Admin '${currentLoggedInUser}' attempted removal of built-in system operator: ${username}`);
+					return false;
+				}
+				try {
+					const f = resolveNode(vfsRoot, "/etc/users.json");
+					if (!f || !f.content) return false;
+					let ulist = JSON.parse(f.content);
+					ulist = ulist.filter((u: any) => u.username !== username);
+					
+					const success = writeVFSFile(vfsRoot, "/etc/users.json", JSON.stringify(ulist, null, 2));
+					if (success) {
+						triggerVFSChange();
+						writeSyslog(`Accounts DB diminished: user '${username}' credentials purged.`);
+					}
+					return success;
+				} catch {
+					return false;
+				}
+			},
+
+			triggerKernelPanic: (message: string) => {
+				triggerPanic(message);
+			},
+
+			 getProcesses: () => {
+				return Array.from(activeProcesses.values()).map((p) => ({
+					pid: p.pid,
+					name: p.name,
+					state: p.state,
+					memoryUsage: p.memoryUsage,
+					cpuUsage: p.cpuUsage,
+					owner: p.owner,
+					args: p.args,
+					cwd: p.cwd,
+				}));
+			},
+
+			spawnProcess: (name: string, isBackground = false, args?: string[], cwd?: string): number => {
+				return bootProcess(name, isBackground, args, cwd);
+			},
+
+			suspendProcess: (targetPid: number): boolean => {
+				if (targetPid === 1) return false;
+				const target = activeProcesses.get(targetPid);
+				if (target) {
+					target.state = ProcessState.SUSPENDED;
+					target.cpuUsage = 0;
+					writeSyslog(`Process suspended (SIGSTOP): ${target.name} (PID: ${targetPid})`);
+					return true;
+				}
+				return false;
+			},
+
+			resumeProcess: (targetPid: number): boolean => {
+				const target = activeProcesses.get(targetPid);
+				if (target) {
+					target.state = target.isBackground ? ProcessState.SERVICE : ProcessState.RUNNING;
+					writeSyslog(`Process resumed (SIGCONT): ${target.name} (PID: ${targetPid})`);
+					return true;
+				}
+				return false;
+			},
+
+			spawnCustomProcess: (name: string, owner: string, memory: number, cpu: number, isService: boolean): number => {
+				if (kernelPanicState) {
+					throw new Error("System execution prohibited: Kernel is in a panicked state.");
+				}
+				const pid = nextPid++;
+				const proc: Process = {
+					pid,
+					name,
+					state: isService ? ProcessState.SERVICE : ProcessState.RUNNING,
+					owner: owner || currentLoggedInUser,
+					memoryUsage: memory,
+					cpuUsage: cpu,
+					logs: [`Bespoke custom process ${name} created.`],
+					startTime: Date.now(),
+					isBackground: isService,
+				};
+				activeProcesses.set(pid, proc);
+				writeSyslog(`Process spawned via TLDM Panel: ${name} (PID: ${pid}, Owner: ${proc.owner})`);
+				return pid;
+			},
+
+			killProcess: (targetPid: number): boolean => {
+				if (targetPid === 1) {
+					triggerPanic("Kernel Panic: Attempted SIGKILL on PID 1 (systemBackgroundProcessD) - core daemon missing.");
+					return false;
+				}
+				const target = activeProcesses.get(targetPid);
+				if (!target) return false;
+
+				const cfg = getSettingsObj();
+				if (cfg.restrict_process_kill === true) {
+					if (currentLoggedInUserRole !== "root" && target.owner === "root" && currentLoggedInUserRole !== "admin") {
+						writeSyslog(`Access privileges denied: User '${currentLoggedInUser}' lacks privileges to terminate root processes.`);
+						return false;
+					}
+				}
+
+				return killProcess(targetPid);
+			},
+
+			getServices: (): DaemonService[] => {
+				return JSON.parse(JSON.stringify(services));
+			},
+
+			controlService: (name: string, action: "start" | "stop" | "restart"): boolean => {
+				if (kernelPanicState) return false;
+				const idx = services.findIndex((s) => s.name === name);
+				if (idx === -1) return false;
+
+				writeSyslog(`Service signal routed: control '${name}' requested [${action}] by PID ${pid}`);
+				const service = services[idx];
+
+				if (action === "stop") {
+					if (service.pid) {
+						killProcess(service.pid);
+					}
+					service.status = "inactive";
+					service.pid = null;
+					service.logs.push(`[${new Date().toLocaleTimeString()}] Stopping service.`);
+				} else if (action === "start") {
+					const servicePid = bootProcess(name, true);
+					service.status = "active";
+					service.pid = servicePid;
+					service.logs.push(`[${new Date().toLocaleTimeString()}] Starting systemd service.`);
+				} else if (action === "restart") {
+					if (service.pid) {
+						killProcess(service.pid);
+					}
+					const servicePid = bootProcess(name, true);
+					service.status = "active";
+					service.pid = servicePid;
+					service.logs.push(`[${new Date().toLocaleTimeString()}] Restarted service successfully.`);
+				}
+				return true;
+			},
+
+			syslog: (message: string) => {
+				writeSyslog(`[PID ${pid}][${proc.name}] ${message}`);
+			},
+
+			getLogs: () => {
+				if (!syslogdEnabled) {
+					return ["--- [CRITICAL WARNING: syslogd.service is offline. Syslog buffer is frozen] ---"];
+				}
+				return [...syslogBuffer];
+			},
+		};
+	};
+
+	return {
+		bootProcess,
+		killProcess,
+		getProcesses: () => Array.from(activeProcesses.values()),
+		getKernelVFS: () => JSON.parse(JSON.stringify(vfsRoot)),
+		getSyscallToken,
+		writeSyslog,
+		getSyslogs: () => {
+			if (!syslogdEnabled) {
+				return ["--- [CRITICAL WARNING: syslogd.service is offline. Syslog buffer is frozen] ---"];
+			}
+			return [...syslogBuffer];
+		},
+		registerVFSListener: (listener: (root: VFSNode) => void) => {
+			vfsListeners.add(listener);
+			return () => {
+				vfsListeners.delete(listener);
+			};
+		},
+		// Account system implementation getters
+		getCurrentUser: () => currentLoggedInUser,
+		getCurrentUserRole: () => currentLoggedInUserRole,
+		loginUser: (username: string, passwordHash: string) => {
+			return performLogin(username, passwordHash);
+		},
+		logoutUser: () => {
+			currentLoggedInUser = "guest";
+			currentLoggedInUserRole = "user";
+			writeSyslog(`[AUTH] Session cleared. Reverted to guest.`);
+			authListeners.forEach((l) => l("guest", "user"));
+		},
+		registerAuthListener: (listener: (user: string, role: string) => void) => {
+			authListeners.add(listener);
+			return () => {
+				authListeners.delete(listener);
+			};
+		},
+		testAuthentication: (): { name: string; passed: boolean; message: string }[] => {
+			const results = [];
+			const originalUser = currentLoggedInUser;
+			const originalRole = currentLoggedInUserRole;
+			try {
+				// Test 1: Guest blank password login
+				const t1 = performLogin("guest", "");
+				results.push({ name: "Guest Session (Blank Pwd)", passed: t1, message: t1 ? "Verified: blank credential OK" : "Failed" });
+				
+				// Test 2: Guest alias password login
+				const t2 = performLogin("guest", "guest");
+				results.push({ name: "Guest Session (Alias Pwd)", passed: t2, message: t2 ? "Verified: 'guest' string OK" : "Failed" });
+				
+				// Test 3: Tux login with 'tux' password
+				const t3 = performLogin("tux", "tux");
+				results.push({ name: "Tux Session (tux/tux)", passed: t3, message: t3 ? "Verified: admin credential OK" : "Failed" });
+				
+				// Test 4: Root login with 'root' password
+				const t4 = performLogin("root", "root");
+				results.push({ name: "Root Session (root/root)", passed: t4, message: t4 ? "Verified: superuser credential OK" : "Failed" });
+				
+				// Test 5: Failure on bad credentials
+				const t5 = !performLogin("root", "incorrect_pass_123");
+				results.push({ name: "Incorrect Password Isolation", passed: t5, message: t5 ? "Verified: rejected wrong credentials cleanly" : "Failed" });
+			} catch (e: any) {
+				results.push({ name: "Secure Core Operations Check", passed: false, message: e.message });
+			} finally {
+				currentLoggedInUser = originalUser;
+				currentLoggedInUserRole = originalRole;
+			}
+			return results;
+		},
+		// Disaster recovery indicators
+		isPanicked: () => kernelPanicState,
+		getPanicMessage: () => kernelPanicMessage,
+		triggerPanic: (reason: string) => triggerPanic(reason),
+		registerPanicListener: (listener: (msg: string) => void) => {
+			panicListeners.add(listener);
+			return () => {
+				panicListeners.delete(listener);
+			};
+		},
+		flushVFSToDisk: async () => {
+			writeSyslog(`[SYSTEM] Flushing cached in-memory VFS and settings to persistent IndexedDB...`);
+			return await saveVFSToDisk(vfsRoot);
+		}
+	};
 };
 
 export const createSecureKernel = (initialVFS: VFSNode): KernelInstance => createKernelWithFlavor(initialVFS, "secure");
 export const createXsiKernel = (initialVFS: VFSNode): KernelInstance => createKernelWithFlavor(initialVFS, "xsi");
 export const createFobKernel = (initialVFS: VFSNode): KernelInstance => createKernelWithFlavor(initialVFS, "fob");
+
+export const kernels: Record<string, (initialVFS: VFSNode) => KernelInstance> = {
+	createSecureKernel,
+	createXsiKernel,
+	createFobKernel,
+};

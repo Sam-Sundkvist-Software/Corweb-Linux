@@ -1,0 +1,155 @@
+[
+	{
+		"id": "desktopEnv",
+		"name": "Desktop Environment",
+		"description": "Core window supervisor, start panels, shortcuts, and global skeuomorphic context managers",
+		"version": "1.0.0",
+		"dependencies": ["Kernel", "syslog.service"],
+		"author": "TrashLinux Core Development Group",
+		"path": "/bin/desktop",
+		"pathType": "internal"
+	},
+	{
+		"id": "terminalUF",
+		"name": "Command Terminal",
+		"description": "Terminal shell with standard command emulation, process spawners, and local environment bindings",
+		"version": "1.0.0",
+		"dependencies": ["VFS"],
+		"author": "GNU Terminal Project",
+		"icon": "terminal",
+		"path": "/bin/terminal",
+		"pathType": "internal"
+	},
+	{
+		"id": "fileManagerUF",
+		"name": "File Explorer",
+		"description": "File tree navigation suite and visual disk explorer",
+		"version": "1.0.0",
+		"dependencies": ["VFS"],
+		"author": "Nautilus File Manager Group",
+		"icon": "folder",
+		"path": "/bin/filemanager",
+		"pathType": "internal"
+	},
+	{
+		"id": "leafpadUF",
+		"name": "Text Editor",
+		"description": "Lightweight, distraction-free document writer and editor",
+		"version": "1.0.0",
+		"dependencies": ["VFS"],
+		"author": "LXDE Group",
+		"icon": "file-text",
+		"path": "/bin/leafpad",
+		"pathType": "internal"
+	},
+	{
+		"id": "systemMonitorUFD",
+		"name": "System Monitor",
+		"description": "Process monitor, daemon service status manager, and threat control console",
+		"version": "1.0.0",
+		"dependencies": ["Kernel"],
+		"author": "Sysinternals Logging Division",
+		"icon": "cpu",
+		"path": "/bin/sysmonitor",
+		"pathType": "internal"
+	},
+	{
+		"id": "minesweeperUF",
+		"name": "Minesweeper Game",
+		"description": "Classic retro logic puzzle board game with customizable grids",
+		"version": "1.0.0",
+		"dependencies": [],
+		"author": "Retro Classics Inc",
+		"icon": "gamepad",
+		"path": "/bin/minesweeper",
+		"pathType": "internal"
+	},
+	{
+		"id": "surferUF",
+		"name": "Web Browser",
+		"description": "Text-based HTML visualizer and DNS lookup client",
+		"version": "1.0.0",
+		"dependencies": ["syslog.service"],
+		"author": "CERN Hackers Group",
+		"icon": "globe",
+		"path": "/bin/browser",
+		"pathType": "internal"
+	},
+	{
+		"id": "controlPanelUFD",
+		"name": "System Settings",
+		"description": "Users account administrator and general configuration flags setup",
+		"version": "1.0.0",
+		"dependencies": ["Kernel"],
+		"author": "TrashLinux Admin Foundation",
+		"icon": "settings",
+		"path": "/bin/settings",
+		"pathType": "internal"
+	},
+	{
+		"id": "themeManagerUF",
+		"name": "Theme Configurator",
+		"description": "Visual customizer for skeuomorphic borders, solid/gradient desktop wallpapers, custom CSS code injections, and system-wide CSS selectors rules engine",
+		"version": "1.0.0",
+		"dependencies": ["VFS"],
+		"author": "XFCE Customization Labs",
+		"icon": "palette",
+		"path": "/bin/theme",
+		"pathType": "internal"
+	},
+	{
+		"id": "imageViewerUF",
+		"name": "Image Viewer",
+		"description": "A fast layout graphic browser supporting simple images and canvas pixels",
+		"version": "1.0.0",
+		"dependencies": ["VFS"],
+		"author": "GNOME Media Developers",
+		"icon": "image",
+		"path": "/bin/imageview",
+		"pathType": "internal"
+	},
+	{
+		"id": "videoPlayerUF",
+		"name": "Video Player",
+		"description": "Visual stream media window rendering offline files and logs",
+		"version": "1.0.0",
+		"dependencies": ["VFS"],
+		"author": "VideoLAN Team",
+		"icon": "video",
+		"path": "/bin/videoplay",
+		"pathType": "internal"
+	},
+	{
+		"id": "musicPlayerUF",
+		"name": "Music Player",
+		"description": "Audio playlist utility to play music streams and tracks in retro skins",
+		"version": "1.0.0",
+		"dependencies": ["VFS"],
+		"author": "XMMS Music Player Group",
+		"icon": "music",
+		"path": "/bin/musicplay",
+		"pathType": "internal"
+	},
+	{
+		"id": "appRegistryUF",
+		"name": "App Registry Manager",
+		"description": "Administrative console to dynamic app registry configurations, dependencies, authors, and version bumps",
+		"version": "1.0.0",
+		"dependencies": ["VFS"],
+		"author": "System Registry Software Foundation",
+		"icon": "layout",
+		"path": "/bin/appreg",
+		"pathType": "internal"
+	},
+	{
+		"id": "myCustomApp",
+		"name": "Dynamic Custom App",
+		"description": "Live compiled TSX application loaded from the VFS registry space",
+		"version": "1.0.0",
+		"dependencies": ["VFS"],
+		"author": "guest",
+		"icon": "layout",
+		"path": "/home/guest/custom_app.tsx",
+		"pathType": "internal"
+	}
+]
