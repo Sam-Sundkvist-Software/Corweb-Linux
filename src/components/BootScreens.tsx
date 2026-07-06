@@ -65,28 +65,28 @@ export function DetailedBootScreen({
 
   if (bootLoaderPhase === "loader") {
     return (
-      <div className="w-screen h-screen bg-black flex flex-col justify-between font-mono p-10 text-white select-none">
-        <div className="max-w-3xl w-full mx-auto space-y-8 flex-1 flex flex-col justify-center">
+      <div className="tlnx-boot-loader">
+        <div className="tlnx-loader-content">
           {/* Header */}
-          <div className="space-y-2 border-b border-gray-800 pb-4">
-            <div className="flex items-center space-x-3 text-red-500 animate-pulse">
+          <div className="tlnx-loader-header">
+            <div className="tlnx-loader-brand">
               <Cpu className="w-6 h-6" />
-              <h1 className="text-sm font-black tracking-widest uppercase">
+              <h1 className="tlnx-loader-title">
                 ★ FOB BOOT LOADER (v1.2-SANDBOX) ★
               </h1>
             </div>
-            <p className="text-[10px] text-gray-500 leading-4">
+            <p className="tlnx-loader-subtitle">
               AMI INTEL-80386 CPU VIRTUAL BIOS SHIELD // MEMORY STATUS: OK // HDD: /dev/hda1
             </p>
           </div>
 
           {/* Menu */}
-          <div className="space-y-4">
-            <p className="text-xs text-gray-400 font-bold">
+          <div className="tlnx-loader-menu-container">
+            <p className="tlnx-loader-menu-prompt">
               Please select a kernel to execute (Press keys [1-3] or Click):
             </p>
 
-            <div className="border border-gray-800 bg-zinc-950 p-4 space-y-2">
+            <div className="tlnx-loader-menu-box">
               {availableKernels.map((kernel, index) => {
                 const isSelected = activeSelection === kernel.id;
                 return (
@@ -97,17 +97,13 @@ export function DetailedBootScreen({
                       setActiveSelection(kernel.id);
                       onSelectKernel?.(kernel.id);
                     }}
-                    className={`w-full text-left p-3 flex items-center justify-between text-xs font-mono transition-all border ${
-                      isSelected
-                        ? "bg-white text-black border-white"
-                        : "bg-transparent text-gray-400 border-transparent hover:border-gray-800 hover:text-white"
-                    }`}
+                    className={`tlnx-loader-menu-item ${isSelected ? "tlnx-selected" : ""}`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <span className="font-bold">[{index + 1}]</span>
-                      <span className="font-bold tracking-wide">{kernel.name}</span>
+                    <div className="tlnx-item-label">
+                      <span className="tlnx-item-index">[{index + 1}]</span>
+                      <span className="tlnx-item-name">{kernel.name}</span>
                     </div>
-                    <div className="text-[10px] font-mono opacity-80">
+                    <div className="tlnx-item-meta">
                       entry: {kernel.entry} // v{kernel.version}
                     </div>
                   </button>
@@ -117,18 +113,18 @@ export function DetailedBootScreen({
           </div>
 
           {/* Feedback */}
-          <div className="text-center space-y-2 bg-zinc-900/40 p-4 border border-zinc-900">
-            <p className="text-xs text-red-400 animate-pulse font-extrabold uppercase">
+          <div className="tlnx-loader-feedback">
+            <p className="tlnx-loader-countdown">
               ⏳ Automatic boot of standard target in {countdown} seconds...
             </p>
-            <p className="text-[10px] text-gray-500">
+            <p className="tlnx-loader-hint">
               Press [1-3] or click an alternative kernel image to interrupt. Press [ENTER] to boot selected.
             </p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="text-center text-[10px] text-gray-600 tracking-wider">
+        <div className="tlnx-loader-footer">
           FOB MULTI-KERNEL REFLECTION RUNTIME LAYER // XSI ISOLATED CHASSIS
         </div>
       </div>
@@ -136,12 +132,12 @@ export function DetailedBootScreen({
   }
 
   return (
-    <div className="w-screen h-screen bg-black flex flex-col justify-between font-mono p-6 text-xs text-white select-none">
+    <div className="tlnx-boot-screen">
       {/* Top Banner */}
-      <div className="flex justify-between items-center border-b-2 border-[#ff4500] pb-2">
-        <div className="flex items-center space-x-2.5">
+      <div className="tlnx-boot-header">
+        <div className="tlnx-boot-title-box">
           <Monitor className="w-5 h-5 text-red-500 animate-pulse" />
-          <span className="font-bold tracking-wider text-white select-none text-[12px]">
+          <span className="tlnx-boot-title">
             {activeSelection === "xsi" 
               ? "XSI Boot: Loading Advanced IPC Isolation Kernels..." 
               : activeSelection === "fob" 
@@ -149,36 +145,36 @@ export function DetailedBootScreen({
               : "LILO Boot: loading trashlinux........................"}
           </span>
         </div>
-        <div className="flex items-center space-x-1.5 text-gray-500 text-[10px]">
+        <div className="tlnx-boot-meta">
           <Cpu className="w-3.5 h-3.5" />
           <span>simdev: /dev/hda1 [FLAVOR: {activeSelection.toUpperCase()}]</span>
         </div>
       </div>
 
       {/* Scrolling Log Stream */}
-      <div className="flex-1 my-5 overflow-y-auto pr-2 space-y-1 font-mono text-[11px] leading-4 text-white">
+      <div className="tlnx-boot-log-stream">
         {logs.map((log, index) => (
           <div key={index} className="whitespace-pre-wrap">
             {log}
           </div>
         ))}
         {logs.length > 0 && (
-          <div className="text-gray-400 animate-pulse font-bold flex items-center space-x-1">
+          <div className="tlnx-boot-log-cursor-box">
             <span>▋</span>
-            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-mono font-normal ml-1">Spawning background daemons...</span>
+            <span className="tlnx-boot-log-cursor-text">Spawning background daemons...</span>
           </div>
         )}
         <div ref={terminalEndRef} />
       </div>
 
       {/* Centered Spinner HUD */}
-      <div className="flex flex-col items-center justify-center space-y-2.5 p-3 border-2 border-t-[#808080] border-l-[#808080] border-r-white border-b-white bg-[#d4d0c8] text-black">
-        <div className="flex items-center space-x-2">
-          <span className="w-2.5 h-2.5 bg-red-600 animate-ping" />
-          <span className="w-2 h-2 bg-[#ff4500]" />
-          <span className="w-2 h-2 bg-black" />
+      <div className="tlnx-boot-spinner-hud">
+        <div className="tlnx-boot-spinner-dots">
+          <span />
+          <span />
+          <span />
         </div>
-        <div className="text-[10px] font-black uppercase tracking-widest select-none">
+        <div className="tlnx-boot-spinner-label">
           TRASH LINUX v0.04a [BOOT FLAVOR: {activeSelection.toUpperCase()}]
         </div>
       </div>
@@ -198,40 +194,40 @@ interface GnomeDialogProps {
 
 export function GnomeDialog({ title, message, type, onClose }: GnomeDialogProps) {
   return (
-    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-[9999] p-4 select-none animate-[fadeIn_0.1s_ease-out]">
+    <div className="tlnx-gnome-dialog-overlay">
       <div 
         id="trash_alert_dialog"
-        className="w-full max-w-[370px] bg-[#d4d0c8] border-[3px] border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-2xl flex flex-col overflow-hidden text-[#111] font-mono"
+        className="tlnx-gnome-dialog"
       >
-        <div className="bg-[#002080] text-white px-3 py-1.5 flex items-center justify-between font-bold text-[11px] select-none border-b border-white">
-          <span className="flex items-center space-x-1 uppercase tracking-wider">
+        <div className="tlnx-gnome-dialog-header">
+          <span className="tlnx-gnome-dialog-title">
             {type === "error" ? "🛑" : type === "success" ? "⭐" : "💾"} {title}
           </span>
           <button 
             onClick={onClose}
-            className="w-4 h-4 bg-[#d4d0c8] text-black border border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center text-[9px] font-black cursor-pointer active:border-t-[#808080] active:border-l-[#808080]"
+            className="tlnx-gnome-dialog-close-btn"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-4 flex items-start space-x-4 bg-[#e4e0d8] border-b-2 border-[#808080]">
-          <div className="pt-0.5 shrink-0">
+        <div className="tlnx-gnome-dialog-body">
+          <div className="tlnx-gnome-dialog-icon">
             {type === "error" ? (
               <ShieldAlert className="w-8 h-8 text-[#ff4500]" />
             ) : (
               <Info className="w-8 h-8 text-[#002080]" />
             )}
           </div>
-          <p className="text-[11px] leading-5 font-bold text-gray-900 select-text font-mono">
+          <p className="tlnx-gnome-dialog-msg">
             {message}
           </p>
         </div>
 
-        <div className="bg-[#d4d0c8] px-3 py-2 flex justify-end">
+        <div className="tlnx-gnome-dialog-footer">
           <button
             onClick={onClose}
-            className="px-5 py-1 border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] bg-[#d4d0c8] text-black font-black uppercase text-[10px] active:border-t-[#808080] active:border-l-[#808080] select-none cursor-pointer"
+            className="tlnx-gnome-dialog-ok-btn"
           >
             OK
           </button>
@@ -250,38 +246,37 @@ interface GnomeDiagnosticsDialogProps {
 
 export function GnomeDiagnosticsDialog({ testResults, testsPassed, onReplay, onClose }: GnomeDiagnosticsDialogProps) {
   return (
-    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-[9998] p-4 select-none animate-[fadeIn_0.1s_ease-out]">
+    <div className="tlnx-gnome-dialog-overlay">
       <div 
         id="trash_diag_window"
-        className="w-full max-w-[420px] bg-[#d4d0c8] border-[3px] border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-2xl flex flex-col overflow-hidden text-black font-mono"
+        className="tlnx-gnome-diag-window"
       >
-        <div className="bg-[#002080] text-white px-3 py-1.5 flex items-center justify-between font-bold text-[11px] select-none border-b border-white">
-          <span className="flex items-center space-x-1.5 uppercase tracking-wider">
+        <div className="tlnx-gnome-diag-header">
+          <span>
             🔬 Security Unit Tests Diagnostics
           </span>
           <button 
             onClick={onClose}
-            className="w-4 h-4 bg-[#d4d0c8] text-black border border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center text-[9px] font-black cursor-pointer active:border-t-[#808080] active:border-l-[#808080]"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-4 bg-[#e4e0d8] flex-1 overflow-y-auto space-y-3">
-          <div className="flex items-center justify-between border-b border-[#808080] pb-2">
-            <span className="text-[10px] font-bold text-black uppercase">Dynamic Authentication Assertions</span>
-            <span className={`px-2 py-0.5 font-bold text-[8px] border uppercase ${testsPassed ? "bg-emerald-700 text-white" : "bg-red-700 text-white"}`}>
+        <div className="tlnx-gnome-diag-body">
+          <div className="tlnx-gnome-diag-title-row">
+            <span className="tlnx-diag-section">Dynamic Authentication Assertions</span>
+            <span className={`tlnx-diag-badge ${testsPassed ? "tlnx-success" : "tlnx-failure"}`}>
               {testsPassed ? "5/5 CERTIFIED" : "FAILURES DETECTED"}
             </span>
           </div>
 
-          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+          <div className="tlnx-gnome-diag-list">
             {testResults.map((test, idx) => (
-              <div key={idx} className="flex items-center justify-between text-[10px] font-mono leading-5 border-b border-dashed border-[#808080]/30 pb-1">
-                <span className="text-gray-800 font-bold">{test.name}</span>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-500 text-[9px] truncate max-w-[155px]">{test.message}</span>
-                  <span className={`font-black text-[9px] shrink-0 ${test.passed ? "text-emerald-800" : "text-red-700"}`}>
+              <div key={idx} className="tlnx-gnome-diag-item">
+                <span className="tlnx-test-name">{test.name}</span>
+                <div className="tlnx-test-result-box">
+                  <span className="tlnx-test-msg">{test.message}</span>
+                  <span className={`tlnx-test-status ${test.passed ? "tlnx-pass" : "tlnx-fail"}`}>
                     [{test.passed ? "PASS" : "FAIL"}]
                   </span>
                 </div>
@@ -289,16 +284,16 @@ export function GnomeDiagnosticsDialog({ testResults, testsPassed, onReplay, onC
             ))}
           </div>
 
-          <p className="text-[9px] text-[#555] leading-4">
+          <p className="tlnx-gnome-diag-footer-note">
             * These dynamic unit assertions sweep standard user log-in sessions, file-write constraints, role definitions, and sandbox containment locks.
           </p>
         </div>
 
-        <div className="bg-[#d4d0c8] border-t-2 border-[#808080] p-3 flex justify-between gap-3">
+        <div className="tlnx-gnome-diag-footer">
           <button
             type="button"
             onClick={onReplay}
-            className="px-3 py-1 bg-[#d4d0c8] text-black text-[9.5px] font-bold border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] active:border-t-[#808080] active:border-l-[#808080] select-none cursor-pointer flex items-center space-x-1"
+            className="tlnx-diag-action-btn"
           >
             <span>🔄 Re-run Tests</span>
           </button>
@@ -306,7 +301,7 @@ export function GnomeDiagnosticsDialog({ testResults, testsPassed, onReplay, onC
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 bg-[#002080] text-white font-black uppercase text-[10px] border-2 border-t-white border-l-white border-r-black border-b-black select-none cursor-pointer"
+            className="tlnx-diag-close-btn"
           >
             Close Diagnostics
           </button>
@@ -322,49 +317,48 @@ interface GnomeInstructionsDialogProps {
 
 export function GnomeInstructionsDialog({ onClose }: GnomeInstructionsDialogProps) {
   return (
-    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-[9998] p-4 select-none animate-[fadeIn_0.1s_ease-out]">
+    <div className="tlnx-gnome-dialog-overlay">
       <div 
         id="trash_instructions_window"
-        className="w-full max-w-[420px] bg-[#d4d0c8] border-[3px] border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-2xl flex flex-col overflow-hidden text-black font-mono"
+        className="tlnx-gnome-instructions-window"
       >
-        <div className="bg-[#002080] text-white px-3 py-1.5 flex items-center justify-between font-bold text-[11px] border-b border-white select-none">
-          <span className="flex items-center space-x-1.5 uppercase tracking-wider">
+        <div className="tlnx-gnome-instr-header">
+          <span>
             💾 TrashLinux Password Guidelines
           </span>
           <button 
             onClick={onClose}
-            className="w-4 h-4 bg-[#d4d0c8] text-black border border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center text-[9px] font-black cursor-pointer active:border-t-[#808080] active:border-l-[#808080]"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-4 bg-[#e4e0d8] flex-1 overflow-y-auto space-y-3 text-[11px]">
-          <p className="font-bold border-b border-[#808080] pb-1">DEFAULT PRE-CONFIGURED ACCOUNTS:</p>
-          <div className="space-y-1.5">
-            <div className="flex justify-between font-mono bg-white p-1.5 border border-[#808080] leading-4 text-xs">
-              <span className="font-extrabold text-red-700">root (Sys Administrator)</span>
-              <span>passwd: <code className="bg-gray-100 rounded px-1 font-bold">root</code></span>
+        <div className="tlnx-gnome-instr-body">
+          <p className="tlnx-instr-section-title">DEFAULT PRE-CONFIGURED ACCOUNTS:</p>
+          <div className="tlnx-instr-accounts-list">
+            <div className="tlnx-instr-account-item">
+              <span className="tlnx-uname-root">root (Sys Administrator)</span>
+              <span className="tlnx-pwd-box">passwd: <code>root</code></span>
             </div>
-            <div className="flex justify-between font-mono bg-white p-1.5 border border-[#808080] leading-4 text-xs">
-              <span className="font-semibold text-slate-800">tux (Linux operator)</span>
-              <span>passwd: <code className="bg-gray-100 rounded px-1 font-bold">tux</code></span>
+            <div className="tlnx-instr-account-item">
+              <span className="tlnx-uname-tux">tux (Linux operator)</span>
+              <span className="tlnx-pwd-box">passwd: <code>tux</code></span>
             </div>
-            <div className="flex justify-between font-mono bg-[#dcfce7] p-1.5 border border-emerald-600/35 leading-4 text-xs">
-              <span className="font-extrabold text-[#111]">guest (Bypass profile)</span>
-              <span className="font-bold text-emerald-800">One-Click Login Bypass</span>
+            <div className="tlnx-instr-account-item tlnx-guest">
+              <span className="tlnx-guest-badge">guest (Bypass profile)</span>
+              <span className="tlnx-pwd-box">One-Click Login Bypass</span>
             </div>
           </div>
-          <p className="text-[10px] text-gray-500 bg-[#eeeeec] p-2 border border-gray-300 rounded-sm">
+          <p className="tlnx-instr-tips-box">
             💡 Sandbox safety guidelines: TrashLinux does not persist any external credential variables. If custom logins cause database conflicts, click "Hard Reset VFS" at the bottom to flush the workspace cleanly.
           </p>
         </div>
 
-        <div className="bg-[#d4d0c8] border-t-2 border-[#808080] p-3 flex justify-end">
+        <div className="tlnx-gnome-instr-footer">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-1.5 bg-[#002080] text-white font-black uppercase text-[10px] border-2 border-t-white border-l-white border-r-black border-b-black select-none cursor-pointer"
+            className="tlnx-instr-close-btn"
           >
             Closed
           </button>
@@ -492,13 +486,7 @@ export function GdmLoginScreen({
   const filteredUsers = userAccounts.filter(u => u.username !== "guest");
 
   return (
-    <div 
-      className="w-screen h-screen bg-[#1b1d1f] flex flex-col justify-between font-mono text-xs text-black p-4 select-none"
-      style={{
-        backgroundImage: "linear-gradient(rgba(255,255,255,.01) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.01) 1px, transparent 1px)",
-        backgroundSize: "20px 20px"
-      }}
-    >
+    <div className="tlnx-gdm-screen">
       
       {/* Dynamic Alerts Dialog overlays */}
       {alertModal && (
@@ -526,38 +514,38 @@ export function GdmLoginScreen({
       )}
 
       {/* Top bar */}
-      <div className="flex justify-between items-center text-gray-400 px-4 py-2 text-[10.5px] select-none font-bold border-b border-[#2d3235]">
-        <span className="tracking-tight flex items-center space-x-1.5">
+      <div className="tlnx-gdm-topbar">
+        <span className="tlnx-gdm-topbar-brand">
           <span>⚙️</span>
           <span>TLDM: TrashLinux Display Greeter v0.04a</span>
         </span>
-        <div className="flex items-center space-x-3.5">
+        <div className="tlnx-gdm-topbar-actions">
           <span>CONSOLE TTY1</span>
-          <span className="bg-orange-800 px-2 py-0.5 text-white leading-3 rounded uppercase font-mono text-[9px] font-bold">STABLE</span>
+          <span className="tlnx-gdm-stable-badge">STABLE</span>
         </div>
       </div>
 
-      {/* Main card box - Compact, completely flat, double bevel boxes (Zero padding deformation!) */}
-      <div className="self-center my-auto w-full max-w-[370px] bg-[#d4d0c8] border-[3px] border-t-white border-l-white border-r-[#404040] border-b-[#404040] p-4.5 flex flex-col relative">
+      {/* Main card box */}
+      <div className="tlnx-gdm-card">
         {/* Clay visual strip */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-[#ff4500]" />
+        <div className="tlnx-gdm-clay-strip" />
 
         {/* Vintage Trash Logo */}
-        <div className="text-center mb-4 mt-2 select-none flex flex-col justify-center items-center">
-          <div className="text-4xl animate-bounce mb-1">
+        <div className="tlnx-gdm-logo-section">
+          <div className="tlnx-gdm-logo">
             🗑️
           </div>
-          <h2 className="text-[17px] font-black tracking-widest text-[#111111] uppercase leading-5">trashlinux</h2>
-          <span className="text-[9px] text-gray-600 font-bold uppercase tracking-wider">Dumpster Fire Sandbox Core (v0.04a)</span>
+          <h2>trashlinux</h2>
+          <span>Dumpster Fire Sandbox Core (v0.04a)</span>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="tlnx-gdm-form">
 
           {/* USER SELECTION PANEL */}
           {!selectedUser && !showOtherInput ? (
-            <div className="space-y-1.5">
-              <span className="block text-[9.5px] font-black uppercase tracking-wider px-0.5 text-[#ff4500]">SELECT USER SESSION:</span>
-              <div className="max-h-[160px] overflow-y-auto space-y-1 border-2 border-t-[#808080] border-l-[#808080] border-r-white border-b-white bg-white p-1.5">
+            <div className="tlnx-gdm-user-section">
+              <span className="tlnx-gdm-section-label">SELECT USER SESSION:</span>
+              <div className="tlnx-gdm-user-list">
                 
                 {/* ONE-CLICK GUEST BYPASS ACTION */}
                 <button
@@ -569,16 +557,16 @@ export function GdmLoginScreen({
                       triggerAlert("Session Fail", "Failed to establish guest session.");
                     }
                   }}
-                  className="w-full flex items-center justify-between p-1.5 mb-1.5 bg-[#dcfce7] border border-emerald-500 rounded-none cursor-pointer hover:bg-[#bbf7d0] transition-colors"
+                  className="tlnx-gdm-guest-bypass-btn"
                 >
-                  <div className="flex items-center space-x-2">
+                  <div className="tlnx-bypass-label">
                     <span className="text-sm">⚡</span>
-                    <div className="text-left">
-                      <p className="font-extrabold text-emerald-950 text-[10.5px] leading-3">Quick Guest Login</p>
-                      <p className="text-[8.5px] text-emerald-800 font-mono leading-3">No password required</p>
+                    <div>
+                      <p className="tlnx-bypass-title">Quick Guest Login</p>
+                      <p className="tlnx-bypass-desc">No password required</p>
                     </div>
                   </div>
-                  <span className="text-[8px] font-black px-1 py-[1px] bg-emerald-700 text-white uppercase">bypass</span>
+                  <span className="tlnx-bypass-tag">bypass</span>
                 </button>
 
                 {/* USER ACCOUNTS */}
@@ -587,18 +575,18 @@ export function GdmLoginScreen({
                     key={user.username}
                     type="button"
                     onClick={() => handleSelectUser(user)}
-                    className="w-full flex items-center justify-between p-1.5 rounded-none cursor-pointer hover:bg-[#bab4ac] border border-transparent hover:border-[#808080] transition-colors"
+                    className="tlnx-gdm-user-item"
                   >
-                    <div className="flex items-center space-x-2">
+                    <div className="tlnx-user-label">
                       <span className="text-sm">
                         {user.avatar === "penguin" ? "🐧" : user.avatar === "system" ? "⚙️" : "👤"}
                       </span>
-                      <div className="text-left">
-                        <p className="font-bold text-gray-950 text-[10.5px] leading-3">{user.fullName}</p>
-                        <p className="text-[8.5px] text-gray-500 font-mono leading-3">uname: {user.username}</p>
+                      <div>
+                        <p className="tlnx-user-fullname">{user.fullName}</p>
+                        <p className="tlnx-user-uname">uname: {user.username}</p>
                       </div>
                     </div>
-                    <span className="text-[8.2px] font-bold px-1 bg-gray-300 text-gray-700 uppercase border border-gray-400">{user.role}</span>
+                    <span className="tlnx-user-role-badge">{user.role}</span>
                   </button>
                 ))}
 
@@ -611,23 +599,23 @@ export function GdmLoginScreen({
                     setCustomUsername("");
                     setPassword("");
                   }}
-                  className="w-full text-center py-1.5 bg-[#b8b4ac] hover:bg-[#9c9a94] text-black font-extrabold block border border-t-white border-l-white border-r-[#808080] border-b-[#808080] text-[9.5px] rounded-none uppercase tracking-wider mt-2.5 active:border-t-[#808080] active:border-l-[#808080] cursor-pointer"
+                  className="tlnx-gdm-other-user-btn"
                 >
                   Other Console Account...
                 </button>
               </div>
             </div>
           ) : (
-            <div className="space-y-3 font-mono">
+            <div className="tlnx-gdm-login-active-box">
               {/* Chosen profile strip */}
-              <div className="flex items-center justify-between bg-[#e4e0d8] border-2 border-t-[#808080] border-l-[#808080] border-r-white border-b-white p-2">
-                <div className="flex items-center space-x-2">
+              <div className="tlnx-gdm-chosen-profile">
+                <div className="tlnx-profile-details">
                   <span className="text-sm">👤</span>
                   <div>
-                    <span className="font-extrabold block text-gray-900 text-[10.5px]">
+                    <span className="tlnx-profile-name">
                       {showOtherInput ? "Other Console Session" : selectedUser?.fullName}
                     </span>
-                    <span className="text-[8.5px] text-gray-500 font-mono leading-3 block">
+                    <span className="tlnx-profile-uname">
                       username: {showOtherInput ? customUsername || "none" : selectedUser?.username}
                     </span>
                   </div>
@@ -639,19 +627,18 @@ export function GdmLoginScreen({
                     setShowOtherInput(false);
                     setPassword("");
                   }}
-                  className="text-[8.5px] text-red-900 border border-[#808080] hover:bg-red-100 rounded-none px-1.5 py-0.5 font-bold"
+                  className="tlnx-gdm-exit-profile-btn"
                 >
                   [Exit]
                 </button>
               </div>
 
               {showOtherInput && (
-                <div>
-                  <label htmlFor="custom_uname" className="block text-[9px] font-bold uppercase mb-0.5 text-gray-700">ACCOUNT USERNAME:</label>
+                <div className="tlnx-gdm-input-group">
+                  <label htmlFor="custom_uname">ACCOUNT USERNAME:</label>
                   <input
                     id="custom_uname"
                     type="text"
-                    className="w-full px-2 py-1 bg-white border-2 border-t-[#808080] border-l-[#808080] border-r-white border-b-white font-mono text-[#111] outline-none text-xs"
                     placeholder="lowercase username"
                     value={customUsername}
                     onChange={(e) => setCustomUsername(e.target.value)}
@@ -660,25 +647,24 @@ export function GdmLoginScreen({
                 </div>
               )}
 
-              <div>
-                <label htmlFor="passwd_input" className="block text-[9px] font-bold uppercase mb-0.5 text-gray-700">ACCOUNT PASSWORD:</label>
-                <div className="relative">
+              <div className="tlnx-gdm-input-group">
+                <label htmlFor="passwd_input">ACCOUNT PASSWORD:</label>
+                <div className="tlnx-input-pwd-wrapper">
                   <input
                     id="passwd_input"
                     type="password"
-                    className="w-full px-2 py-1 bg-white border-2 border-t-[#808080] border-l-[#808080] border-r-white border-b-white font-mono text-[#111] outline-none"
                     placeholder="blank or same as username"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoFocus={!showOtherInput}
                   />
-                  <KeyRound className="absolute right-2.5 top-1.5 w-3.5 h-3.5 text-gray-400" />
+                  <KeyRound />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-1.5 bg-[#002080] text-white border-2 border-t-white border-l-white border-r-black border-b-black font-black hover:bg-[#00175c] text-xs uppercase cursor-pointer"
+                className="tlnx-gdm-submit-btn"
               >
                 UNMOCK SESSION AND BOOT WEBOS
               </button>
@@ -686,18 +672,18 @@ export function GdmLoginScreen({
           )}
 
           {/* Compact bottom grid helper buttons */}
-          <div className="pt-2 border-t border-dashed border-[#808080] flex items-center justify-between text-[10px] gap-2">
+          <div className="tlnx-gdm-helper-grid">
             <button
               type="button"
               onClick={() => setShowDiagnostics(true)}
-              className="flex-1 text-center bg-[#d4d0c8] text-black border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] font-bold py-1 text-[9px] uppercase cursor-pointer active:border-t-[#808080] active:border-l-[#808080]"
+              className="tlnx-gdm-helper-btn"
             >
               🔬 Diagnostics ({testsPassed ? "Ok" : "Fail"})
             </button>
             <button
               type="button"
               onClick={() => setShowInstructions(true)}
-              className="flex-1 text-center bg-[#d4d0c8] text-black border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] font-bold py-1 text-[9px] uppercase cursor-pointer active:border-t-[#808080] active:border-l-[#808080]"
+              className="tlnx-gdm-helper-btn"
             >
               ℹ️ Logins Guide
             </button>
@@ -707,24 +693,24 @@ export function GdmLoginScreen({
       </div>
 
       {/* Footer bar */}
-      <div className="bg-[#2d3235] text-gray-300 text-[10px] font-bold p-2 px-5 flex justify-between items-center select-none shadow">
-        <div className="flex space-x-4">
+      <div className="tlnx-gdm-footer">
+        <div className="tlnx-gdm-footer-actions">
           <button
             onClick={() => {
               if (confirm("Disconnect and turn off virtualization?")) {
                 window.close();
               }
             }}
-            className="flex items-center space-x-1 hover:text-white transition-colors cursor-pointer"
+            className="tlnx-gdm-footer-action-btn"
           >
-            <Power className="w-3 h-3 text-red-500" />
+            <Power className="w-3 h-3 tlnx-red" />
             <span>Power Off</span>
           </button>
           <button
             onClick={onReboot}
-            className="flex items-center space-x-1 hover:text-white transition-colors cursor-pointer"
+            className="tlnx-gdm-footer-action-btn"
           >
-            <RefreshCcw className="w-3 h-3 text-green-500" />
+            <RefreshCcw className="w-3 h-3 tlnx-green" />
             <span>Restart Hardware</span>
           </button>
           <button
@@ -740,13 +726,13 @@ export function GdmLoginScreen({
                 }
               }
             }}
-            className="flex items-center space-x-1.5 text-amber-300 hover:text-white transition-colors border border-amber-800/40 px-1.5 py-0.5 h-5 bg-amber-950/10 cursor-pointer"
+            className="tlnx-gdm-footer-action-btn tlnx-clean-db-btn"
             title="Wipe IndexedDB database and reboot standard configuration"
           >
             <span>🗑️ Clean VFS DB</span>
           </button>
         </div>
-        <span className="text-gray-500 text-[9px]">TrashLinux Host VFS Simulator v0.04a</span>
+        <span className="tlnx-gdm-footer-text">TrashLinux Host VFS Simulator v0.04a</span>
       </div>
     </div>
   );
@@ -800,107 +786,105 @@ CS: 0x0008  DS: 0x0010  SS: 0x0010  ES: 0x0010  FS: 0x0033  GS: 0x003B
 CR0: 0x80050033  CR2: 0x00103E4A  CR3: 0x00201000  EFLAGS: 0x00010246`;
 
   return (
-    <div className="w-screen h-screen bg-[#800000] text-[#f7f7f7] font-mono p-6 md:p-12 flex flex-col justify-between select-text overflow-y-auto selection:bg-red-600 selection:text-white z-[9999] absolute inset-0">
+    <div className="tlnx-kernel-panic-screen">
       
       {/* LED indicators simulated overlay */}
-      <div className="flex items-center justify-between border-b-2 border-red-500/50 pb-4 mb-6">
-        <div className="flex items-center space-x-3">
+      <div className="tlnx-panic-header">
+        <div className="tlnx-panic-title-box">
           <ShieldAlert className="w-8 h-8 text-white animate-bounce shrink-0" />
-          <div>
-            <h1 className="text-sm md:text-md font-black tracking-widest text-white uppercase">
+          <div className="tlnx-panic-title-content">
+            <h1>
               TRASHLINUX FATAL EXCEPTION OCCURRED
             </h1>
-            <p className="text-[10px] text-red-200 mt-0.5 uppercase tracking-wider font-extrabold">
+            <p>
               SYSTEM INTEGRITY EXCEPTION // EXCEPTION CODE: 0xDEADBEEF
             </p>
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center space-x-4 text-red-300 text-[10px]">
+        <div className="tlnx-panic-leds">
           <span>HARDWARE KEYBOARD LEDS:</span>
-          <div className="flex space-x-3 bg-red-950/40 p-1.5 border border-red-800">
-            <span className="flex items-center space-x-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full border border-red-700 ${ledState ? "bg-emerald-400" : "bg-zinc-950"}`} />
-              <span className="text-[9px] font-bold">CAPS</span>
+          <div className="tlnx-led-box">
+            <span className="tlnx-led-item">
+              <span className={`tlnx-led-dot ${ledState ? "tlnx-active" : "tlnx-inactive"}`} />
+              <span className="tlnx-led-label">CAPS</span>
             </span>
-            <span className="flex items-center space-x-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full border border-red-700 ${!ledState ? "bg-emerald-400" : "bg-zinc-950"}`} />
-              <span className="text-[9px] font-bold">SCROLL</span>
+            <span className="tlnx-led-item">
+              <span className={`tlnx-led-dot ${!ledState ? "tlnx-active" : "tlnx-inactive"}`} />
+              <span className="tlnx-led-label">SCROLL</span>
             </span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 space-y-6">
-        <div>
-          <p className="text-[11px] md:text-[12px] leading-relaxed text-red-100 max-w-4xl font-sans">
-            A fatal instruction was executed or a corrupt virtual memory state was encountered inside the secure Ring 0 kernel context line. 
-            Execution has been suspended to prevent page corruption, loss of user VFS files, or unauthorized system state alterations.
-          </p>
-        </div>
+      <div className="tlnx-panic-body">
+        <p className="tlnx-panic-intro">
+          A fatal instruction was executed or a corrupt virtual memory state was encountered inside the secure Ring 0 kernel context line. 
+          Execution has been suspended to prevent page corruption, loss of user VFS files, or unauthorized system state alterations.
+        </p>
 
         {/* Diagnostic parameters display */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="tlnx-panic-blocks-grid">
           
           {/* Main Error */}
-          <div className="bg-red-950/40 border border-red-600 p-4 flex flex-col justify-between">
+          <div className="tlnx-panic-block">
             <div>
-              <span className="font-extrabold text-[10px] uppercase text-red-300 block mb-1">
+              <span className="tlnx-block-label">
                 Primary Panic Description:
               </span>
-              <p className="text-[11px] md:text-[12px] font-black text-white leading-relaxed whitespace-pre-line">
+              <p className="tlnx-block-content">
                 {primaryReason}
               </p>
             </div>
-            <div className="text-[9px] text-red-300 border-t border-red-700/60 pt-3 mt-4">
+            <div className="tlnx-block-footer">
               FAULTING MODULE: secureKernel.ts // SYSTEM_CALL_CONDUIT: [int 0x80]
             </div>
           </div>
 
           {/* Processor details */}
-          <div className="bg-red-950/40 border border-red-600 p-4 font-mono text-[9.5px] leading-relaxed">
-            <span className="font-extrabold text-[10px] uppercase text-red-300 block mb-1">
+          <div className="tlnx-panic-dump">
+            <span className="tlnx-dump-label">
               Active Virtual Registers Dump:
             </span>
-            <pre className="whitespace-pre-wrap text-emerald-300 selection:bg-emerald-800 selection:text-white">
+            <pre>
               {registerDump}
             </pre>
           </div>
         </div>
 
         {/* Backtrace details */}
-        <div>
-          <span className="font-extrabold text-[10.5px] uppercase text-red-300 block mb-1.5">
+        <div className="tlnx-panic-backtrace-section">
+          <span className="tlnx-backtrace-label">
             Active Exception Call Backtrace (D3-DUMP):
           </span>
-          <div className="bg-[#1e0000] border-2 border-red-600 p-4 max-h-48 overflow-y-auto leading-relaxed shadow-inner">
-            <pre className="text-white text-[9px] sm:text-[10px] whitespace-pre-wrap select-text font-mono selection:bg-red-800">
+          <div className="tlnx-panic-backtrace-box">
+            <pre>
               {stackTrace}
             </pre>
           </div>
         </div>
 
         {/* Mitigation procedures */}
-        <div className="bg-red-950/20 p-4 border border-red-800/40 text-[10.5px] leading-relaxed text-red-100 font-sans">
-          <p className="font-bold font-mono text-red-300 uppercase mb-1.5">Standard Recovery Procedures:</p>
-          <ul className="list-decimal pl-5 space-y-1">
-            <li>Check file permissions within <span className="font-bold underline">/etc/sysconfig.json</span> and recover lost parameters.</li>
-            <li>Maintain memory allocation buffers using the <span className="font-bold">App Registry Manager</span> or clear leak vectors.</li>
-            <li>In case of recurring panics, use the terminal <span className="font-bold font-mono">panic</span> trigger parameters to analyze syscall boundaries.</li>
+        <div className="tlnx-panic-procedures">
+          <p className="tlnx-procedures-title">Standard Recovery Procedures:</p>
+          <ul>
+            <li>Check file permissions within <span className="tlnx-bold-underline">/etc/sysconfig.json</span> and recover lost parameters.</li>
+            <li>Maintain memory allocation buffers using the <span className="tlnx-bold">App Registry Manager</span> or clear leak vectors.</li>
+            <li>In case of recurring panics, use the terminal <span className="tlnx-bold font-mono">panic</span> trigger parameters to analyze syscall boundaries.</li>
           </ul>
         </div>
       </div>
 
       {/* Shutdown action controls */}
-      <div className="border-t-2 border-red-500/50 pt-5 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-[9px] text-red-300 max-w-xl leading-relaxed text-center sm:text-left select-none font-sans uppercase font-bold">
+      <div className="tlnx-panic-footer">
+        <p className="tlnx-panic-footer-hint">
           If this is the first time you are seeing this layout screen, press the reboot trigger button. 
           The local volume storage (VFS) cache is stored securely in memory and committed on graceful restarts.
         </p>
 
         <button
           onClick={onReboot}
-          className="w-full sm:w-auto px-6 py-3 bg-white text-red-800 font-black hover:bg-red-100 transition-colors uppercase border-2 border-transparent hover:border-red-600 flex items-center justify-center space-x-2 animate-pulse cursor-pointer shadow-lg"
+          className="tlnx-panic-reboot-btn"
         >
           <Power className="w-4 h-4 text-red-800 animate-spin" />
           <span>Cold System Reboot</span>

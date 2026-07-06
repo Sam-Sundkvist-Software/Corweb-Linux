@@ -807,36 +807,31 @@ export default function Desktop() {
         />
 
       {/* TOP TRASHLINUX PANEL BAR */}
-      <div className="h-7 w-full top-panel-main bg-gradient-to-b from-[#fafafa] via-[#e2e2e2] to-[#cccccc] border-b border-b-[#a0a0a0] flex items-center justify-between px-2 text-[11px] text-black z-50 select-none shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1.5px_3px_rgba(0,0,0,0.15)]">
-        <div className="flex items-center space-x-1">
+      <div className="tlnx-top-panel top-panel-main">
+        <div className="tlnx-panel-left">
           {/* Main system branding badge */}
           <div 
             onClick={() => setAboutOpen(true)}
-            className="flex items-center space-x-1 px-1.5 py-0.5 bg-[#b8b4ac] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] cursor-pointer mr-2 active:border-t-[#808080] active:border-l-[#808080] select-none"
+            className="tlnx-panel-brand"
           >
-            <span className="text-xs">🗑️</span>
-            <span className="font-extrabold tracking-tight text-[10px] uppercase text-black">TRASHLINUX</span>
+            <span>🗑️ TRASHLINUX</span>
           </div>
 
           {/* Applications Menu */}
-          <div className="relative">
+          <div className="tlnx-menu-container">
             <button
               onClick={() => {
                 setAppsMenuOpen(!appsMenuOpen);
                 setPlacesMenuOpen(false);
                 setSystemMenuOpen(false);
               }}
-              className={`px-2.5 py-0.5 flex items-center space-x-1 transition-all rounded-none text-[11px] cursor-pointer ${
-                appsMenuOpen 
-                  ? "bg-[#b8b4ac] border border-t-[#808080] border-l-[#808080] border-r-white border-b-white font-bold" 
-                  : "hover:bg-[#c0c0c0] border border-transparent"
-              }`}
+              className={`tlnx-panel-btn ${appsMenuOpen ? "tlnx-menu-active" : ""}`}
             >
               <span>[Applications]</span>
             </button>
 
             {appsMenuOpen && (
-              <div className="absolute top-[22px] left-0 w-60 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-xl divide-y divide-[#808080]/30 z-50 text-[10.5px] max-h-96 overflow-y-auto">
+              <div className="tlnx-panel-dropdown tlnx-apps-menu">
                 {(os.apps && os.apps.length > 0 ? os.apps : []).filter(app => app.id !== "desktopEnv").map((app) => (
                   <button
                     key={app.id}
@@ -862,15 +857,15 @@ export default function Desktop() {
                       os.launchApp(app.id, app.name, opts);
                       setAppsMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-[#002080] hover:text-white flex items-start space-x-2 text-black"
+                    className="tlnx-dropdown-item"
                     title={`${app.description} (v${app.version} by ${app.author})`}
                   >
-                    <div className="mt-0.5 shrink-0">
+                    <div className="tlnx-app-icon shrink-0">
                       {getAppIcon(app.icon)}
                     </div>
-                    <div className="flex flex-col text-left">
-                      <span className="font-bold leading-none">{app.name}</span>
-                      <span className="text-[8.5px] opacity-70 mt-0.5 max-w-[180px] truncate">{app.description}</span>
+                    <div className="tlnx-app-meta">
+                      <span className="tlnx-app-name">{app.name}</span>
+                      <span className="tlnx-app-desc">{app.description}</span>
                     </div>
                   </button>
                 ))}
@@ -879,29 +874,25 @@ export default function Desktop() {
           </div>
 
           {/* Places dropdown */}
-          <div className="relative">
+          <div className="tlnx-menu-container">
             <button
               onClick={() => {
                 setPlacesMenuOpen(!placesMenuOpen);
                 setAppsMenuOpen(false);
                 setSystemMenuOpen(false);
               }}
-              className={`px-2.5 py-0.5 flex items-center space-x-1 transition-all rounded-none text-[11px] cursor-pointer ${
-                placesMenuOpen 
-                  ? "bg-[#b8b4ac] border border-t-[#808080] border-l-[#808080] border-r-white border-b-white font-bold" 
-                  : "hover:bg-[#c0c0c0] border border-transparent"
-              }`}
+              className={`tlnx-panel-btn ${placesMenuOpen ? "tlnx-menu-active" : ""}`}
             >
               <span>[Places]</span>
             </button>
             {placesMenuOpen && (
-              <div className="absolute top-[22px] left-0 w-44 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-xl divide-y divide-[#808080]/30 z-50 text-[10.5px]">
+              <div className="tlnx-panel-dropdown tlnx-places-menu">
                 <button
                   onClick={() => {
                     os.launchApp("fileManagerUF", "VFS Node Explorer", { content: `/home/${user}` });
                     setPlacesMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold text-black"
+                  className="tlnx-dropdown-item tlnx-bold"
                 >
                   home folder
                 </button>
@@ -910,7 +901,7 @@ export default function Desktop() {
                     os.launchApp("fileManagerUF", "VFS Node Explorer", { content: `/home/${user}/Desktop` });
                     setPlacesMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold text-black"
+                  className="tlnx-dropdown-item tlnx-bold"
                 >
                   desktop path
                 </button>
@@ -919,7 +910,7 @@ export default function Desktop() {
                     os.launchApp("fileManagerUF", "VFS Node Explorer", { content: `/home/${user}/Documents` });
                     setPlacesMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold text-black"
+                  className="tlnx-dropdown-item tlnx-bold"
                 >
                   documents dir
                 </button>
@@ -928,7 +919,7 @@ export default function Desktop() {
                     os.launchApp("fileManagerUF", "VFS Node Explorer", { content: "/" });
                     setPlacesMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold text-black"
+                  className="tlnx-dropdown-item tlnx-bold"
                 >
                   computer root (/)
                 </button>
@@ -937,29 +928,25 @@ export default function Desktop() {
           </div>
 
           {/* System Dropdown */}
-          <div className="relative">
+          <div className="tlnx-menu-container">
             <button
               onClick={() => {
                 setSystemMenuOpen(!systemMenuOpen);
                 setAppsMenuOpen(false);
                 setPlacesMenuOpen(false);
               }}
-              className={`px-2.5 py-0.5 flex items-center space-x-1 transition-all rounded-none text-[11px] cursor-pointer ${
-                systemMenuOpen 
-                  ? "bg-[#b8b4ac] border border-t-[#808080] border-l-[#808080] border-r-white border-b-white font-bold" 
-                  : "hover:bg-[#c0c0c0] border border-transparent"
-              }`}
+              className={`tlnx-panel-btn ${systemMenuOpen ? "tlnx-menu-active" : ""}`}
             >
               <span>[System]</span>
             </button>
             {systemMenuOpen && (
-              <div className="absolute top-[22px] left-0 w-48 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-xl divide-y divide-[#808080]/30 z-50 text-[10.5px]">
+              <div className="tlnx-panel-dropdown tlnx-system-menu">
                 <button
                   onClick={() => {
                     os.launchApp("controlPanelUFD", "System Settings", { width: 780, height: 500 });
                     setSystemMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold flex items-center space-x-2 text-black"
+                  className="tlnx-dropdown-item tlnx-bold"
                 >
                   <SettingsIcon className="w-3.5 h-3.5" />
                   <span>System Settings</span>
@@ -970,7 +957,7 @@ export default function Desktop() {
                     setAboutOpen(true);
                     setSystemMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold flex items-center space-x-2 text-black"
+                  className="tlnx-dropdown-item tlnx-bold"
                 >
                   <Info className="w-3.5 h-3.5" />
                   <span>About System</span>
@@ -981,7 +968,7 @@ export default function Desktop() {
                     os.logoutUser();
                     setSystemMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-[#002080] hover:text-white font-bold flex items-center space-x-2 text-red-800"
+                  className="tlnx-dropdown-item tlnx-logout tlnx-bold"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>Log Out</span>
@@ -992,7 +979,7 @@ export default function Desktop() {
                     os.rebootSystem();
                     setSystemMenuOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-red-800 hover:text-white text-red-700 font-bold flex items-center space-x-2"
+                  className="tlnx-dropdown-item tlnx-reboot tlnx-bold"
                 >
                   <Clock className="w-3.5 h-3.5" />
                   <span>Restart System</span>
@@ -1003,20 +990,20 @@ export default function Desktop() {
         </div>
 
         {/* TOP PANEL RIGHTS & SEC SECURITY STATS */}
-        <div className="flex items-center space-x-2 text-[10.5px]">
+        <div className="tlnx-panel-right">
           {/* Active privileges indicator */}
           <div 
             data-tooltip-title="User Authentication Privilege"
             data-tooltip-icon="🔑"
             data-tooltip-variant="success"
             data-tooltip={`Your authenticated context is currently active under standard group rules.\n\nRole: **${os.currentUserRole}**\nSystem status: *secure*`}
-            className="flex items-center space-x-1 px-1.5 py-[1px] bg-[#b8b4ac] border border-b-[#808080] border-r-[#808080] rounded-none font-bold uppercase text-black cursor-help"
+            className="tlnx-privileges-badge"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-slate-800" />
             <span>role: {os.currentUserRole}</span>
           </div>
 
-          <div className="flex items-center space-x-1.5 border-r border-[#808080] pr-2 select-none">
+          <div className="tlnx-network-section">
             <Volume2 className="w-3.5 h-3.5 text-[#555] opacity-80 animate-none" />
             <Wifi className="w-3.5 h-3.5 text-[#555]" />
             <span 
@@ -1024,26 +1011,26 @@ export default function Desktop() {
               data-tooltip-icon="🌐"
               data-tooltip-variant="warning"
               data-tooltip={`eth0 is active on sandbox loopback: **127.0.0.1**.\n\nWarning: Socket listener is *throttled* within browser sandboxing. Launch XTerm and execute ping requests directly.`}
-              className="text-[10px] bg-[#b8b4ac]/50 border border-[#808080] px-1 py-0.5 font-bold cursor-help"
+              className="tlnx-network-badge"
             >
               eth0: {liveSettingsObj?.networking_enabled !== false ? "127.0.0.1" : "offline"}
             </span>
           </div>
 
-          <div className="flex items-center space-x-1 px-1">
+          <div className="tlnx-datetime-widget">
             <Calendar className="w-3.5 h-3.5 text-[#555] opacity-85" />
             <span>{currentDate}</span>
             <span className="text-gray-400 pl-0.5">|</span>
             <Clock className="w-3.5 h-3.5 text-[#555] opacity-85" />
-            <span className="font-bold text-slate-950">{currentTime}</span>
+            <span className="tlnx-clock-bold">{currentTime}</span>
           </div>
 
           <button
             onClick={() => os.logoutUser()}
-            className="p-1 hover:bg-[#808080] rounded transition-colors cursor-pointer"
+            className="tlnx-logout-btn"
             title="Log out and secure VFS state"
           >
-            <LogOut className="w-3.5 h-3.5 text-red-800" />
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -1055,20 +1042,19 @@ export default function Desktop() {
         onContextMenu={handleDesktopBgContextMenu}
       >
         {!isDesktopManagerActive ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 font-mono text-center p-6 select-none z-30">
-            <div className="border-2 border-red-500 bg-red-950/40 p-5 max-w-md shadow-2xl animate-pulse text-red-500 rounded-none">
-              <span className="text-2xl font-black block mb-2 font-mono">⚠️ DESKTOP COMPOSITOR PANIC ⚠️</span>
-              <p className="text-[11px] leading-5 text-gray-300 font-mono">
-                The <code className="text-red-400 font-bold">desktop-manager.service</code> background daemon was terminated or failed to start. Theme composites and wallpaper elements are frozen.
+          <div className="tlnx-compositor-panic">
+            <div className="tlnx-panic-box">
+              <span className="tlnx-panic-title">⚠️ DESKTOP COMPOSITOR PANIC ⚠️</span>
+              <p>
+                The <code>desktop-manager.service</code> background daemon was terminated or failed to start. Theme composites and wallpaper elements are frozen.
               </p>
-              <div className="mt-5 flex space-x-2.5 justify-center">
+              <div className="tlnx-panic-actions">
                 <button
                   onClick={() => {
                     if (os.kernel) {
                       os.kernel.getSyscallToken(1).controlService("desktop-manager.service", "start");
                     }
                   }}
-                  className="px-4 py-2 bg-red-600 text-white font-bold border-2 border-t-red-400 border-l-red-400 border-r-red-900 border-b-red-900 text-xs uppercase hover:bg-red-700 cursor-pointer"
                 >
                   systemctl start desktop-manager
                 </button>
@@ -1078,7 +1064,7 @@ export default function Desktop() {
         ) : null}
 
         {/* DESKTOP INTEGRATED VFS SHORTCUT ICONS */}
-        <div className="absolute top-10 left-10 flex flex-col space-y-4 items-center select-none z-10 w-24">
+        <div className="tlnx-desktop-grid">
           
           {/* Default User Session Icon */}
           <div 
@@ -1099,12 +1085,12 @@ export default function Desktop() {
             data-tooltip-icon="⚙️"
             data-tooltip-variant="info"
             data-tooltip={`Manage real-time execution bounds, systemctl daemon rules, and binary runtimes.\n\nDouble-click to expand sandbox.`}
-            className="flex flex-col items-center group cursor-pointer text-center w-22 p-1"
+            className="tlnx-shortcut-item group"
           >
-            <div className="w-10 h-10 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center shadow-lg group-hover:scale-105 transition-all text-xl">
+            <div className="tlnx-shortcut-icon tlnx-rules">
               ⚙️
             </div>
-            <span className="text-white text-[11px] drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.95)] text-center font-bold mt-1.5">
+            <span className="tlnx-shortcut-label">
               Rules Control
             </span>
           </div>
@@ -1117,29 +1103,29 @@ export default function Desktop() {
                 key={item.name}
                 onDoubleClick={() => handleDesktopShortcutDoubleClick(item.name, item.type)}
                 onContextMenu={(e) => handleDesktopShortcutContextMenu(e, item.name, item.type)}
-                className="flex flex-col items-center group cursor-pointer text-center w-22 p-1 select-all"
+                className="tlnx-shortcut-item group"
                 style={{ contentVisibility: "auto" }}
               >
                 {item.type === NodeType.DIRECTORY ? (
                   isComputer ? (
-                    <div className="w-10 h-10 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center shadow-md">
+                    <div className="tlnx-shortcut-icon">
                       <span>💻</span>
                     </div>
                   ) : isHome ? (
-                    <div className="w-10 h-10 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center shadow-md">
+                    <div className="tlnx-shortcut-icon">
                       <span>🏠</span>
                     </div>
                   ) : (
-                    <div className="w-10 h-10 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center shadow-md relative">
+                    <div className="tlnx-shortcut-icon">
                       <span>📁</span>
                     </div>
                   )
                 ) : (
-                  <div className="w-10 h-10 bg-[#d4d0c8] border-2 border-t-white border-l-white border-r-[#808080] border-b-[#808080] flex items-center justify-center shadow-md">
+                  <div className="tlnx-shortcut-icon">
                     <span>📄</span>
                   </div>
                 )}
-                <span className="text-white text-[11px] drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.95)] text-center font-bold mt-1">
+                <span className="tlnx-shortcut-label">
                   {item.name}
                 </span>
               </div>
@@ -1277,21 +1263,21 @@ export default function Desktop() {
 
         {/* ABOUT DIALOG MODAL PANEL */}
         {aboutOpen && (
-          <div className="absolute inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-            <div className="w-80 bg-[#d4d0c8] border-[3px] border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-2xl flex flex-col p-4 space-y-3.5">
-              <div className="flex items-center space-x-2.5 border-b border-[#808080] pb-2">
-                <span className="text-3xl">🗑️</span>
-                <div>
-                  <h3 className="font-bold text-sm text-black uppercase">TrashLinux v0.04a</h3>
-                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider font-extrabold font-mono">Dumpster Fire Core Engine</span>
+          <div className="tlnx-about-modal-overlay">
+            <div className="tlnx-about-modal">
+              <div className="tlnx-about-header">
+                <span className="tlnx-about-icon">🗑️</span>
+                <div className="tlnx-about-title-box">
+                  <h3>TrashLinux v0.04a</h3>
+                  <span>Dumpster Fire Core Engine</span>
                 </div>
               </div>
 
-              <div className="text-[11px] leading-5 text-slate-800">
+              <div className="tlnx-about-body">
                 <p>
                   A hardcore client-side OS sandbox paying homage to clunky vintage steel interfaces. Crafted entirely in rigid TS layouts, completely omitting unrequested fluid decorations.
                 </p>
-                <div className="mt-2 text-[9.5px] font-mono bg-white border border-t-[#808080] border-l-[#808080] border-r-white border-b-white p-2 text-gray-700 leading-4.5">
+                <div className="tlnx-about-features">
                   • Suspended & Resumed process registers<br />
                   • Custom Process Spawning & SIGKILL<br />
                   • Dynamic systemctl logger controls<br />
@@ -1301,7 +1287,7 @@ export default function Desktop() {
 
               <button
                 onClick={() => setAboutOpen(false)}
-                className="w-full py-1 bg-[#002080] text-white font-bold border-2 border-t-white border-l-white border-r-black border-b-black text-xs uppercase cursor-pointer"
+                className="tlnx-about-close-btn"
               >
                 Accept specs
               </button>
@@ -1311,12 +1297,12 @@ export default function Desktop() {
       </div>
 
       {/* BOTTOM TASKS TRAY PANEL BAR */}
-      <div className="bottom-taskbar-main h-7 w-full bg-gradient-to-b from-[#fafafa] via-[#e2e2e2] to-[#cccccc] border-t border-t-white border-b border-b-[#a0a0a0] flex items-center justify-between px-2 text-xs text-black select-none z-40 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-        <div className="flex items-center space-x-1 flex-1 min-w-0 pr-4">
+      <div className="tlnx-bottom-taskbar bottom-taskbar-main">
+        <div className="tlnx-taskbar-left">
           {/* Toggle ALL Trigger */}
           <button
             onClick={handleToggleMinimizeAll}
-            className="h-4.5 flex items-center px-2 bg-[#d4d0c8] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] text-[9.5px] font-bold cursor-pointer hover:bg-[#c0c0c0] active:border-t-[#808080] active:border-l-[#808080] uppercase tracking-wider h-5"
+            className="tlnx-show-desktop-btn"
             data-tooltip-title="Desktop Compositor Switcher"
             data-tooltip-icon="🖥️"
             data-tooltip-variant="success"
@@ -1328,7 +1314,7 @@ export default function Desktop() {
           <span className="text-gray-400 pl-0.5 select-none">|</span>
 
           {/* Tray loaded processes links */}
-          <div className="flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+          <div className="tlnx-tasks-tray">
             {os.windows.filter(w => w.appId !== "dialogUF").map((w) => {
               const isActive = os.activeWindowId === w.id && !w.isMinimized;
               return (
@@ -1341,11 +1327,7 @@ export default function Desktop() {
                       os.focusWindow(w.id);
                     }
                   }}
-                  className={`h-4.5 flex items-center px-2.5 text-[9.5px] border transition-all truncate max-w-[130px] cursor-pointer ${
-                    isActive
-                      ? "bg-[#bab4ac] border border-t-[#808080] border-l-[#808080] border-r-white border-b-white font-bold"
-                      : "bg-[#d4d0c8] border border-t-white border-l-white border-r-[#808080] border-b-[#808080] hover:bg-[#c0c0c0]"
-                  }`}
+                  className={`tlnx-task-btn ${isActive ? "tlnx-active" : "tlnx-inactive"}`}
                 >
                   {w.title}
                 </button>
@@ -1355,19 +1337,19 @@ export default function Desktop() {
         </div>
 
         {/* Space indicator mock widget box */}
-        <div className="flex items-center space-x-2">
+        <div className="tlnx-taskbar-right">
           {/* 4 elements mini workspace grid picker */}
-          <div className="grid grid-cols-2 gap-[2px] w-5 h-5 p-[1px] bg-[#bab4ac] border border-t-[#808080] border-l-[#808080] border-r-white border-b-white opacity-85" data-tooltip="Workspace Switcher">
-            <div className="bg-[#002080]" />
-            <div className="bg-transparent" />
-            <div className="bg-transparent" />
-            <div className="bg-transparent" />
+          <div className="tlnx-workspace-grid" data-tooltip="Workspace Switcher">
+            <div className="tlnx-active-workspace" />
+            <div />
+            <div />
+            <div />
           </div>
 
           <span className="text-gray-400 pl-0.5">|</span>
 
           <div
-            className="flex items-center space-x-1 hover:bg-[#c0c0c0] h-5 px-1 cursor-pointer"
+            className="tlnx-quick-launch"
             onClick={() => os.launchApp("fileManagerUF", "VFS Node Explorer", { content: `/home/${user}` })}
             data-tooltip-title="File Explorer Launcher"
             data-tooltip-icon="📂"
@@ -1382,37 +1364,36 @@ export default function Desktop() {
       {/* CUSTOM CONTEXT MENU ELEMENT OVERLAY */}
       {contextMenu && contextMenu.visible && (
         <div
-          className="fixed bg-[#d4d0c8] select-none text-black text-xs min-w-44 py-1 border-2 border-t-white border-l-white border-r-[#404040] border-b-[#404040] shadow-[3px_3px_10px_rgba(0,0,0,0.4)] leading-5 p-0.5"
+          className="tlnx-context-menu"
           style={{
             left: `${contextMenu.x}px`,
             top: `${contextMenu.y}px`,
-            zIndex: 450000
           }}
           onClick={(e) => e.stopPropagation()}
         >
           {contextMenu.type === "desktop" ? (
-            <div className="flex flex-col text-[11px] font-sans">
+            <div className="flex flex-col">
               <button
                 onClick={handleCreateFolder}
-                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+                className="tlnx-context-menu-item"
               >
                 <span>📂</span>
                 <span>New Directory...</span>
               </button>
               <button
                 onClick={handleCreateFile}
-                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+                className="tlnx-context-menu-item"
               >
                 <span>📄</span>
                 <span>New Text File...</span>
               </button>
-              <div className="h-px bg-[#808080] my-1 mx-1.5" />
+              <div className="tlnx-context-menu-sep" />
               <button
                 onClick={() => {
                   os.launchApp("themeManagerUF", "Theme Configurator", { width: 520, height: 420 });
                   setContextMenu(null);
                 }}
-                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+                className="tlnx-context-menu-item"
               >
                 <span>🌅</span>
                 <span>Configure Desktop</span>
@@ -1422,32 +1403,32 @@ export default function Desktop() {
                   os.launchApp("terminalUF", "XTerm Shell Server", { width: 685, height: 440 });
                   setContextMenu(null);
                 }}
-                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+                className="tlnx-context-menu-item"
               >
                 <span>💻</span>
                 <span>Terminal Shell</span>
               </button>
             </div>
           ) : (
-            <div className="flex flex-col text-[11px] font-sans">
+            <div className="flex flex-col">
               <button
                 onClick={handleOpenShortcut}
-                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white font-bold flex items-center space-x-2"
+                className="tlnx-context-menu-item tlnx-bold"
               >
                 <span>🏃‍♂️</span>
                 <span>Execute program</span>
               </button>
               <button
                 onClick={handleInfoShortcut}
-                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white flex items-center space-x-2"
+                className="tlnx-context-menu-item"
               >
                 <span>ℹ️</span>
                 <span>Display Info</span>
               </button>
-              <div className="h-px bg-[#808080] my-1 mx-1.5" />
+              <div className="tlnx-context-menu-sep" />
               <button
                 onClick={handleTrashShortcut}
-                className="w-full text-left px-3 py-1 cursor-pointer hover:bg-[#002080] hover:text-white text-red-800 flex items-center space-x-2"
+                className="tlnx-context-menu-item tlnx-red"
               >
                 <span>🗑️</span>
                 <span>Trash Item</span>
@@ -1502,16 +1483,16 @@ export default function Desktop() {
 
       {liveSettingsObj?.current_desktop_theme === "Broken" && (
         <>
-          <div className="absolute top-[10%] left-[25%] p-4 z-40 bg-black text-[#02ff05] font-mono select-none pointer-events-none text-[9px] border border-red-500 max-w-xs uppercase leading-3" style={{ animation: "tlnx-anim-artifact-flash 1s infinite alternate" }}>
+          <div className="tlnx-broken-artifact-1">
             [FATAL INSTABILITY LEVEL 9]<br/>
             Core segment registers: corrupted<br/>
             PHYSICAL ADDR REF: 0xDEADBEEF<br/>
             THREAD INDEX LOCKED: OS PANIC INBOUND
           </div>
-          <div className="absolute bottom-[20%] right-[15%] p-2 z-40 bg-[#250101] text-yellow-300 font-mono select-none pointer-events-none text-xs border-2 border-yellow-500 rounded flex items-center space-x-1" style={{ animation: "tlnx-anim-screen-vibrate 0.1s infinite alternate" }}>
+          <div className="tlnx-broken-artifact-2">
             <span>⚠️ CRITICAL CORE FLUX STUTTER</span>
           </div>
-          <div className="absolute top-[40%] right-[35%] w-32 h-16 bg-gradient-to-tr from-purple-900 to-green-950 opacity-40 z-30 pointer-events-none border border-green-500" style={{ animation: "tlnx-anim-screen-vibrate 0.3s infinite" }} />
+          <div className="tlnx-broken-artifact-3" />
         </>
       )}
       </TlnxStyleProvider>

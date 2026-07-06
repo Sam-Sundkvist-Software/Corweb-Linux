@@ -1,0 +1,27 @@
+{
+  "registryPath": "/etc/customAppRegistry.json",
+  "defaultAppIdPrefix": "customApp_",
+  "defaultAppPathPattern": "/home/guest/new_app_{id}.tsx",
+  "launcherIcons": [
+    { "value": "monitor", "label": "monitor (Desktop/Terminal)" },
+    { "value": "terminal", "label": "terminal (Terminal)" },
+    { "value": "folder", "label": "folder (Explorer)" },
+    { "value": "file-text", "label": "file-text (Editor)" },
+    { "value": "cpu", "label": "cpu (System Monitor)" },
+    { "value": "gamepad", "label": "gamepad (Minesweeper)" },
+    { "value": "globe", "label": "globe (Browser)" },
+    { "value": "settings", "label": "settings (Configurator)" },
+    { "value": "palette", "label": "palette (Theme Designer)" },
+    { "value": "image", "label": "image (Photo Viewer)" },
+    { "value": "video", "label": "video (Video Player)" },
+    { "value": "music", "label": "music (Audio Stream)" },
+    { "value": "layout", "label": "layout (Default shell)" }
+  ],
+  "newAppDefaults": {
+    "name": "New Guest Application",
+    "description": "Custom user-generated executable system utility",
+    "version": "1.0.0",
+    "icon": "layout",
+    "pathType": "internal"
+  }
+}
