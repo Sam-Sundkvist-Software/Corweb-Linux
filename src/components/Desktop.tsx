@@ -80,6 +80,8 @@ import {
 	Palette,
 	Binary
 } from "lucide-react";
+import MenuBar from "./ui/MenuBar";
+import Menu from "./ui/Menu";
 
 const getAppIcon = (iconName?: string) => {
 	switch (iconName) {
@@ -807,8 +809,19 @@ export default function Desktop() {
 					style={desktopBackgroundStyle}
 				/>
 
+			{/* new menu bar test */}
+			<MenuBar>
+				<Menu text="System">
+					<Menu text="Log off"></Menu>
+					<Menu text="Reboot"></Menu>
+					<Menu text="Power off"></Menu>
+				</Menu>
+				<Menu text="Desktop"></Menu>
+				<Menu text="Help"></Menu>
+			</MenuBar>
+
 			{/* TOP TRASHLINUX PANEL BAR */}
-			<div className="tlnx-top-panel top-panel-main">
+			{false && <div className="tlnx-top-panel top-panel-main">
 				<div className="tlnx-panel-left">
 					{/* Main system branding badge */}
 					<button 
@@ -1034,7 +1047,7 @@ export default function Desktop() {
 						<LogOut className="w-3.5 h-3.5" />
 					</button>
 				</div>
-			</div>
+			</div>}
 
 			{/* WORKSPACE MAIN DESKTOP GRID WALLPAPER */}
 			<div

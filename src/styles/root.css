@@ -16,6 +16,19 @@
 		#d8d4cd 50%, 
 		#bfb9ae 100%
 	);
+	--hover-gradient: linear-gradient(
+		180deg, 
+		#ffffff 0%, 
+		#faf6ed 15%, 
+		#e7e3da 50%, 
+		#cbd2db 100%
+	);
+	--active-gradient: linear-gradient(
+		180deg, 
+		#a8a297 0%, 
+		#c4beb3 40%, 
+		#d0cac0 100%
+	);
 	--base-border-radius: 3px;
 }
 

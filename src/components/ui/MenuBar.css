@@ -1,0 +1,62 @@
+.tlnx-menu-bar {
+	display: flex;
+	flex-direction: row;
+
+	width: 100%;
+
+	background-image: var(--base-gradient);
+}
+
+.tlnx-menu {
+	position: relative;
+	padding: 0.25rem 0.5rem;
+
+	font-size: 0.75rem;
+	
+	&:hover {
+		background-image: var(--hover-gradient);
+	}
+
+	&:active {
+		background-image: var(--active-gradient);
+	}
+}
+
+.tlnx-menu-bar > .tlnx-menu {
+	
+}
+
+.tlnx-menu-flyout > .tlnx-menu {
+	background-image: var(--base-gradient);
+	width: 100%;
+}
+
+.tlnx-menu > .tlnx-menu-flyout {
+	display: flex;
+	flex-direction: column;
+	position: absolute;
+	z-index: 99999;
+
+	size: unset;
+
+	width: max-content;
+
+	max-width: 20rem;
+	max-height: 40rem;
+
+	overflow: auto;
+
+	background-image: var(--base-gradient);
+
+	&.down {
+		/* Flyout panel (of item in menu bar) */
+		top: 100%;
+		left: 0;
+	}
+
+	&.right {
+		/* Flyout panel (sub-flyout) */
+		top: 0;
+		left: 100%;
+	}
+}
