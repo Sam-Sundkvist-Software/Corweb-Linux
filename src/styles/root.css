@@ -1,0 +1,34 @@
+/* Global defaults overrides */
+*, *::before, *::after {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+:root {
+	--font-sans: "Tahoma", "Verdana", "Segoe UI", sans-serif;
+	--font-mono: "Courier", "Courier New", "Consolas", monospace;
+
+	--base-gradient: linear-gradient(
+		180deg, 
+		#ffffff 0%, 
+		#eceae6 15%, 
+		#d8d4cd 50%, 
+		#bfb9ae 100%
+	);
+	--base-border-radius: 3px;
+}
+
+/* System-wide Typography - Tahoma/Verdana for main OS, Courier/Consolas for code */
+body, html {
+	font-family: "Tahoma", "Verdana", "Segoe UI", sans-serif;
+	cursor: default;
+	background-color: #1a1e20;
+
+	width: 100vw;
+	height: 100vh;
+}
+
+#root {
+	height: 100%;
+}

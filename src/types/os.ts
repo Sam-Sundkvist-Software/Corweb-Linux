@@ -1,3 +1,9 @@
+export enum BootloaderPhase {
+	NONE = "NONE",
+	HARDWARE = "HARDWARE",
+	SOFTWARE = "SOFTWARE",
+}
+
 export enum ProcessState {
 	RUNNING = "RUNNING",
 	SUSPENDED = "SUSPENDED",

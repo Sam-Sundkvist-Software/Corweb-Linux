@@ -1,36 +1,33 @@
+@import "./styles/root.css";
+@import "./styles/desktop.css";
 @import "./styles/windows.css";
 @import "./styles/apps.css";
 @import "./styles/themes.css";
-
-/* Global defaults overrides */
-*, *::before, *::after {
-	margin: 0;
-	padding: 0;
-	box-sizing: border-box;
-}
-
-:root {
-	--font-sans: "Tahoma", "Verdana", "Segoe UI", sans-serif;
-	--font-mono: "Courier", "Courier New", "Consolas", monospace;
-}
-
-/* System-wide Typography - Tahoma/Verdana for main OS, Courier/Consolas for code */
-body, html {
-	font-family: "Tahoma", "Verdana", "Segoe UI", sans-serif;
-	cursor: default;
-	background-color: #1a1e20;
-}
 
 /* Core pointer cursors for links and hyperdesktop interaction */
 a, [href], a * {
 	cursor: pointer !important;
 }
 
-button, select, option, label, input[type="button"], input[type="submit"], input[type="checkbox"], input[type="radio"], input[type="range"], [role="button"] {
+button,
+select,
+option,
+label,
+input[type="button"],
+input[type="submit"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+[role="button"] {
 	cursor: default !important;
 }
 
-input[type="text"], input[type="search"], input[type="password"], textarea, [contenteditable="true"], .selectable-text {
+input[type="text"],
+input[type="search"],
+input[type="password"],
+textarea,
+[contenteditable="true"],
+.selectable-text {
 	cursor: text !important;
 }
 
@@ -39,67 +36,87 @@ input[type="text"], input[type="search"], input[type="password"], textarea, [con
 /* -------------------------------------------------------------------------- */
 
 /* Standard skeuomorphic inputs with classic 3D bezel and silver/white gradients */
-input[type="text"], input[type="search"], input[type="password"], select, textarea {
-	padding: 6px 10px !important;
-	font-size: 11px !important;
-	font-family: "Tahoma", "Verdana", sans-serif !important;
-	border-radius: 4px !important;
-	background: linear-gradient(180deg, #ffffff 0%, #f7f7f7 70%, #eaeaea 100%) !important;
-	border: 2px solid #7f7f7f !important;
-	border-top-color: #404040 !important;
-	border-left-color: #404040 !important;
+input[type="text"],
+input[type="search"],
+input[type="password"],
+select,
+textarea {
+	padding: 6px 10px;
+	font-size: 11px;
+	font-family: "Tahoma", "Verdana", sans-serif;
+	border-radius: 4px;
+	background: linear-gradient(180deg, #ffffff 0%, #f7f7f7 70%, #eaeaea 100%);
+	border: 2px solid #7f7f7f;
+	border-top-color: #404040;
+	border-left-color: #404040;
 	box-shadow: 
 	inset 1px 1.5px 3px rgba(0,0,0,0.25), 
-	0 1px 0 rgba(255,255,255,0.8) !important;
-	color: #1a1a1a !important;
-	font-weight: 500 !important;
+	0 1px 0 rgba(255,255,255,0.8);
+	color: #1a1a1a;
+	font-weight: 500;
 }
 
-input[type="text"]:focus, input[type="search"]:focus, input[type="password"]:focus, select:focus, textarea:focus {
-	outline: none !important;
-	border-color: #3b82f6 !important;
+input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+	outline: none;
+	border-color: #3b82f6;
 	box-shadow: 
-	inset 1px 1.5px 3px rgba(0,0,0,0.25), 
-	0 0 4px rgba(59, 130, 246, 0.6) !important;
+		inset 1px 1.5px 3px rgba(0,0,0,0.25), 
+		0 0 4px rgba(59, 130, 246, 0.6);
 }
 
 /* Text editor textareas and general terminals: strictly enforce Courier New / Consolas */
-.monospace-editor, textarea.font-mono, #terminal_container, #terminal_container input {
-	font-family: "Courier", "Courier New", "Consolas", monospace !important;
-	font-size: 12px !important;
+.monospace-editor,
+textarea.font-mono,
+#terminal_container,
+#terminal_container input {
+	font-family:
+		"Courier", "Courier New", "Consolas", monospace;
+	font-size: 12px ;
 }
 
 /* Silver Glossy 3D Buttons (Consistent, proper contrast, and subtle inconsistencies in highlighting) */
-button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn) {
+/*
+button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn)
+*/
+button {
 	padding: 6px 16px;
 	font-size: 11px;
 	font-family: "Tahoma", "Verdana", sans-serif;
 	font-weight: bold;
 	text-transform: none;
 	border-radius: 3px; /* Elegant slightly square retro corners */
-	background: linear-gradient(180deg, 
-	#ffffff 0%, 
-	#eceae6 15%, 
-	#d8d4cd 50%, 
-	#bfb9ae 100%);
+	background-image: var(--base-gradient);
 	background-color: #d4d0c8; /* Classic sensible grey */
 	border: 2px solid;
-	border-color: #ffffff #5e5e5e #5e5e5e #ffffff;
+	border-color:
+		#ffffff
+		#5e5e5e
+		#5e5e5e
+		#ffffff;
 	color: #1c1a16;
 	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 	box-shadow: 
-	0 1.5px 3px rgba(0, 0, 0, 0.2),
-	inset 0 1px 0 rgba(255, 255, 255, 0.9);
+		0 1.5px 3px rgba(0, 0, 0, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
 	transition: all 0.08s ease-in-out;
 	transform: scale(1);
 }
 
-button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn):hover {
-	background: linear-gradient(180deg, 
-	#ffffff 0%, 
-	#faf6ed 15%, 
-	#e7e3da 50%, 
-	#cbd2db 100%); /* subtle platinum blue hue on hover */
+/*
+button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn):hover
+*/
+button:hover {
+	background: linear-gradient(
+		180deg, 
+		#ffffff 0%, 
+		#faf6ed 15%, 
+		#e7e3da 50%, 
+		#cbd2db 100%
+	); /* subtle platinum blue hue on hover */
 	border-color: #ffffff #2a2a2a #2a2a2a #ffffff;
 	color: #000000;
 	box-shadow: 
@@ -107,18 +124,26 @@ button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-pa
 	inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
-button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn):active {
-	background: linear-gradient(180deg, 
-	#a8a297 0%, 
-	#c4beb3 40%, 
-	#d0cac0 100%);
+/*
+button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn):active
+*/
+button:active {
+	background: linear-gradient(
+		180deg, 
+		#a8a297 0%, 
+		#c4beb3 40%, 
+		#d0cac0 100%
+	);
 	border-color: #404040 #ffffff #ffffff #404040;
 	box-shadow: 
-	inset 0 2px 4px rgba(0, 0, 0, 0.35),
-	0 0.5px 1px rgba(0, 0, 0, 0.1);
+		inset 0 2px 4px rgba(0, 0, 0, 0.35),
+		0 0.5px 1px rgba(0, 0, 0, 0.1);
 }
 
-button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn):disabled {
+/*
+button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-panel-btn):not(.mini-btn):disabled
+*/
+button:disabled {
 	background: #e2e2e2;
 	border-color: #ffffff #bbbbbb #bbbbbb #ffffff;
 	color: #7f7f7f;
@@ -129,22 +154,28 @@ button:not(.w-4\.5):not(.h-4\.5):not(.taskbar-btn):not(.app-icon-btn):not(.os-pa
 }
 
 /* Subtle Inconsistent Silver Buttons: specialized color tints for specific behavioral functions */
-button.btn-danger, button[class*="text-red"], button[title="Close"], button[onClick*="logout"], button[onClick*="reboot"] {
+button.btn-danger {
 	border-color: #ffffff #6b1414 #6b1414 #ffffff;
 	/* soft crimson silver glaze */
-	background: linear-gradient(180deg, #fff5f5 0%, #fee2e2 20%, #fca5a5 50%, #f87171 100%);
+	background-image: linear-gradient(180deg, #fff5f5 0%, #fee2e2 20%, #fca5a5 50%, #f87171 100%);
 	color: #5c0f0f;
 }
 button.btn-danger:hover {
-	background: linear-gradient(180deg, #fff5f5 0%, #fee2e2 10%, #fca5a5 40%, #ef4444 100%);
+	background-image: linear-gradient(180deg, #fff5f5 0%, #fee2e2 10%, #fca5a5 40%, #ef4444 100%);
 	color: #ffffff;
 	text-shadow: 0 1px 1px rgba(0,0,0,0.2);
 }
 
-button.btn-success, button[class*="text-emerald"], button[class*="bg-emerald"] {
+button.btn-success {
 	border-color: #ffffff #14532d #14532d #ffffff;
 	/* soft moss jade silver glaze */
-	background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 20%, #bbf7d0 50%, #86efac 100%);
+	background-image: linear-gradient(
+		180deg,
+		#f0fdf4 0%,
+		#dcfce7 20%,
+		#bbf7d0 50%,
+		#86efac 100%
+	);
 	color: #14532d;
 }
 
@@ -223,7 +254,7 @@ button.btn-success, button[class*="text-emerald"], button[class*="bg-emerald"] {
 	box-shadow: 
 	0 10px 30px rgba(0, 0, 0, 0.45), 
 	0 0 1px rgba(0, 0, 0, 0.8),
-	inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+	inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -234,7 +265,9 @@ button.btn-success, button[class*="text-emerald"], button[class*="bg-emerald"] {
 	height: 7px;
 	border-radius: 50%;
 	background-color: #72db34;
-	box-shadow: 0 0 3px #72db34, inset 0 0.5px 0.5px white;
+	box-shadow:
+		0 0 3px #72db34,
+		inset 0 0.5px 0.5px white;
 	border: 1px solid #4a9117;
 }
 
@@ -243,7 +276,9 @@ button.btn-success, button[class*="text-emerald"], button[class*="bg-emerald"] {
 	height: 7px;
 	border-radius: 50%;
 	background-color: #f75531;
-	box-shadow: 0 0 3px #f75531, inset 0 0.5px 0.5px white;
+	box-shadow:
+		0 0 3px #f75531,
+		inset 0 0.5px 0.5px white;
 	border: 1px solid #aa290b;
 }
 
@@ -254,6 +289,7 @@ button.btn-success, button[class*="text-emerald"], button[class*="bg-emerald"] {
 	position: relative;
 	overflow: hidden;
 }
+
 .shimmer-sweep::after {
 	content: '';
 	position: absolute;
@@ -262,9 +298,9 @@ button.btn-success, button[class*="text-emerald"], button[class*="bg-emerald"] {
 	background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
 	animation: shimmer-sweep-anim 8s infinite linear;
 }
+
 @keyframes shimmer-sweep-anim {
 	0% { left: -100%; }
 	30% { left: 100%; }
 	100% { left: 100%; }
 }
-

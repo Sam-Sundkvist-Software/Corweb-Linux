@@ -3,7 +3,7 @@ import { useWebOS } from "../hooks/useWebOS";
 import WindowFrame from "./WindowFrame";
 import { NodeType, WindowInstance, VFSNode } from "../types/os";
 import { resolveNode } from "../kernel/vfs";
-import { TlnxStyleProvider } from "../context/StyleSystemContext";
+import { StyleRegistry, TlnxStyleProvider } from "../context/StyleSystemContext";
 
 // TODO: remove if useless
 function scopeCSS(cssText: string, prefix: string): string {
@@ -127,7 +127,7 @@ export default function Desktop() {
 	const [glitchTicker, setGlitchTicker] = useState(0);
 
 	// Resolve custom wallpapers from system VFS options in settings
-	const liveSettingsObj = (os.kernel ? os.kernel?.getSyscallToken(1).getSettings() : {}) as any;
+	const liveSettingsObj = (os.kernel ? os.kernel?.getSyscallToken(1).getSettings() : {});
 	const currentServicesList = os.kernel ? os.kernel?.getSyscallToken(1).getServices() : [];
 	const isDesktopManagerActive = os.kernel ? currentServicesList.find(s => s.name === "desktop-manager.service")?.status !== "inactive" : true;
 	const wallpaperCol1 = isDesktopManagerActive ? (liveSettingsObj?.custom_wallpaper_color_1 || "#1b1e20") : "#0a0a0a";
@@ -762,7 +762,7 @@ export default function Desktop() {
 				}
 
 				/* Scope customized overrides inside wrapper bounds */
-				${scopeCSS(liveSettingsObj?.custom_css_overrides || "", ".tlnx-desktop-wrapper")}
+				${scopeCSS(liveSettingsObj?.custom_css_overrides as string || "", ".tlnx-desktop-wrapper")}
 			}
 		`}</style>
 	);
@@ -773,7 +773,7 @@ export default function Desktop() {
 	} else {
 		const wallType = liveSettingsObj?.wallpaper_type || "gradient";
 		if (wallType === "color") {
-			desktopBackgroundStyle = { backgroundColor: liveSettingsObj?.wallpaper_solid_color || "#1b1e20" };
+			desktopBackgroundStyle = { backgroundColor: liveSettingsObj?.wallpaper_solid_color as string || "#1b1e20" };
 		} else if (wallType === "image") {
 			const imgUrl = liveSettingsObj?.wallpaper_image_url || "";
 			desktopBackgroundStyle = {
@@ -785,7 +785,7 @@ export default function Desktop() {
 			};
 		} else {
 			if (liveSettingsObj?.wallpaper_gradient_css) {
-				desktopBackgroundStyle = { background: liveSettingsObj.wallpaper_gradient_css };
+				desktopBackgroundStyle = { background: liveSettingsObj.wallpaper_gradient_css as string };
 			} else {
 				desktopBackgroundStyle = {
 					background: `linear-gradient(135deg, ${wallpaperCol1} 0%, ${wallpaperCol2} 100%)`
@@ -794,16 +794,16 @@ export default function Desktop() {
 		}
 	}
 
-	const styleSystemRules = liveSettingsObj?.style_system_rules || {};
+	const styleSystemRules = liveSettingsObj?.style_system_rules as StyleRegistry || {};
 
 	return (
-		<div className={`w-screen h-screen flex flex-col overflow-hidden relative select-none bg-[#1a1e20] font-sans text-xs ${currentThemeClassName} tlnx-desktop-wrapper`}>
-			{userThemeOverrideStyles}
+		<div className="tlnx-desktop-wrapper">
+			{/*userThemeOverrideStyles*/}
 			
 			<TlnxStyleProvider rules={styleSystemRules}>
 				{/* Immersive UI Wallpaper Gradient configured in Control Panel */}
 				<div
-					className="absolute inset-0 z-0 pointer-events-none transition-all duration-700 opacity-95"
+					className="tlnx-wallpaper"
 					style={desktopBackgroundStyle}
 				/>
 
@@ -811,12 +811,12 @@ export default function Desktop() {
 			<div className="tlnx-top-panel top-panel-main">
 				<div className="tlnx-panel-left">
 					{/* Main system branding badge */}
-					<div 
+					<button 
 						onClick={() => setAboutOpen(true)}
 						className="tlnx-panel-brand"
 					>
 						<span>🗑️ TRASHLINUX</span>
-					</div>
+					</button>
 
 					{/* Applications Menu */}
 					<div className="tlnx-menu-container">
@@ -1038,7 +1038,7 @@ export default function Desktop() {
 
 			{/* WORKSPACE MAIN DESKTOP GRID WALLPAPER */}
 			<div
-				className="flex-1 w-full relative z-10 p-4"
+				className="tlnx-desktop-area"
 				onClick={handleWallpaperClick}
 				onContextMenu={handleDesktopBgContextMenu}
 			>
@@ -1269,14 +1269,14 @@ export default function Desktop() {
 							<div className="tlnx-about-header">
 								<span className="tlnx-about-icon">🗑️</span>
 								<div className="tlnx-about-title-box">
-									<h3>TrashLinux v0.04a</h3>
-									<span>Dumpster Fire Core Engine</span>
+									<h3>Corweb Linux</h3>
+									<span>Desktop Operating System</span>
 								</div>
 							</div>
 
 							<div className="tlnx-about-body">
 								<p>
-									A hardcore client-side OS sandbox paying homage to clunky vintage steel interfaces. Crafted entirely in rigid TS layouts, completely omitting unrequested fluid decorations.
+									A piece of software designed for maximum efficiency. Not to be taken lightly.
 								</p>
 								<div className="tlnx-about-features">
 									• Suspended & Resumed process registers<br />
@@ -1290,7 +1290,7 @@ export default function Desktop() {
 								onClick={() => setAboutOpen(false)}
 								className="tlnx-about-close-btn"
 							>
-								Accept specs
+								Close
 							</button>
 						</div>
 					</div>
@@ -1454,7 +1454,7 @@ export default function Desktop() {
 				return (
 					<div
 						ref={tooltipRef}
-						className={`fixed pointer-events-none p-2 shadow-[3px_3px_6px_rgba(0,0,0,0.25)] flex flex-row items-start gap-2 max-w-[260px] whitespace-normal break-words z-[510000] border-2 transition-opacity duration-75 ${tStyle.wrapper}`}
+						className="tlnx-tooltip"
 						style={{
 							left: "-9999px",
 							top: "-9999px",
@@ -1462,18 +1462,18 @@ export default function Desktop() {
 						}}
 					>
 						{iconToRender && (
-							<span className="text-sm select-none shrink-0" style={{ transform: "translateY(1px)" }}>
+							<span className="tlnx-tooltip-icon">
 								{iconToRender}
 							</span>
 						)}
-						<div className="flex-1 flex flex-col gap-0.5">
+						<div className="tlnx-tooltip-content">
 							{tooltip.title && (
-								<div className={`text-[11px] font-sans font-extrabold leading-tight tracking-tight uppercase ${tStyle.titleColor}`}>
+								<div className={`tlnx-tooltip-title leading-tight tracking-tight uppercase ${tStyle.titleColor}`}>
 									{tooltip.title}
 								</div>
 							)}
 							{tooltip.text && (
-								<div className={`${fontClass} leading-normal tracking-wide ${tStyle.textColor}`}>
+								<div className={`tlnx-tooltip-text leading-normal tracking-wide ${tStyle.textColor}`}>
 									{parseTooltipText(tooltip.text)}
 								</div>
 							)}

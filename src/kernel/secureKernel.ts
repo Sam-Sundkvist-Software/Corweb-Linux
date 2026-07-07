@@ -418,7 +418,7 @@ export const createKernelWithFlavor = (initialVFS: VFSNode, flavor: "secure" | "
 		kernelPanicState = true;
 		
 		// Auto-generate a detailed virtual backtrace if none provided
-		const stack = customStack || new Error("Kernel Backtrace Generated").stack || "No stack trace trace buffer recorded.";
+		const stack = customStack || new Error("Kernel Backtrace Generated").stack || "No stack trace trace recorded.";
 		kernelPanicMessage = `${reason}\n\nSTACK_TRACE:\n${stack}`;
 		syslogdEnabled = true; // Force-enable log streams for post-mortem dump
 		writeSyslog(`[CRITICAL PANIC] ${reason}`);

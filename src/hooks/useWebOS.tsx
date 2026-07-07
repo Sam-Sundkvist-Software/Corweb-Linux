@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { NodeType, Process, WindowInstance, DaemonService, ProcessState, VFSNode, DialogInstance, AppInfo } from "../types/os";
+import { NodeType, Process, WindowInstance, DaemonService, ProcessState, VFSNode, DialogInstance, AppInfo, BootloaderPhase } from "../types/os";
 import { kernels } from "../kernel/secureKernel";
 import { KernelInstance } from "../kernel/secureKernel";
 import { loadVFSFromDisk, resolveNode, writeVFSFile, saveVFSToDisk } from "../kernel/vfs";
@@ -47,7 +47,7 @@ export const useWebOS = () => {
 	}, [vfs, loadAppRegistry]);
 	
 	// Interactive FOB Boot Loader states
-	const [bootLoaderPhase, setBootLoaderPhase] = useState<"hardware" | "software" | "none">("hardware");
+	const [bootLoaderPhase, setBootLoaderPhase] = useState<BootloaderPhase>(BootloaderPhase.HARDWARE);
 	const [availableKernels, setAvailableKernels] = useState<{ id: string; name: string; entry: string; version: string }[]>([]);
 	const [selectedKernelId, setSelectedKernelId] = useState<string>("secure");
 	
@@ -125,12 +125,12 @@ export const useWebOS = () => {
 
 	const selectKernelAndBoot = useCallback((kernelId: string) => {
 		setSelectedKernelId(kernelId);
-		setBootLoaderPhase("software");
+		setBootLoaderPhase(BootloaderPhase.SOFTWARE);
 	}, []);
 
 	// Perform boot sequence based on dynamic reflection matching available bootaid entries
 	useEffect(() => {
-		if (bootLoaderPhase !== "software") return;
+		if (bootLoaderPhase !== BootloaderPhase.SOFTWARE) return;
 
 		let active = true;
 		const runBoot = async () => {
@@ -147,8 +147,8 @@ export const useWebOS = () => {
 				});
 			};
 
-			await addLog("[    0.000000] FOB Boot Loader v1.2 initialising in Sandbox...", 30);
-			await addLog("[    0.010432] Scanning VFS file descriptor: /etc/bootaid.json ... SUCCESS", 45);
+			await addLog("Corweb Bootloader initializing...", 30);
+			await addLog(`Loading kernel ${selectedKernelId}...`, 45);
 			
 			const chosenKernel = availableKernels.find(k => k.id === selectedKernelId) || {
 				id: "secure",
@@ -157,16 +157,16 @@ export const useWebOS = () => {
 				version: "2.6.15-26"
 			};
 
-			await addLog(`[    0.024102] Target chosen kernel: ${chosenKernel.name} (v${chosenKernel.version})`, 50);
-			await addLog(`[    0.038190] FOB Boot Loader: performing dynamic JS module reflection on: '${chosenKernel.entry}'`, 60);
+			await addLog(`Loaded kernel ${chosenKernel.name} (v${chosenKernel.version})`, 50);
+			await addLog(`Reflecting kernel '${chosenKernel.entry}'...`, 60);
 
 			const entryPoint = chosenKernel.entry;
 			const kernelCreator = kernels[entryPoint];
 			
 			if (typeof kernelCreator === "function") {
-				await addLog(`[    0.052102] REFLECTION CONTRACT: Found function '${entryPoint}' of type function [OK]`, 50);
+				await addLog(`Found entry point '${entryPoint}'`, 50);
 			} else {
-				await addLog(`[    0.053120] REFLECTION WARNING: function '${entryPoint}' missing or corrupt! Falling back.`, 80);
+				await addLog(`[WARNING] Kernel entry point missing or corrupt: '${entryPoint}' Falling back.`, 80);
 			}
 
 			// Load File System
@@ -189,13 +189,7 @@ export const useWebOS = () => {
 			}
 
 			if (!isConfigured) {
-				await addLog("[ >>> ] ========================================================", 15);
-				await addLog("[ >>> ] FIRST-BOOT DETECTED: TRASHLINUX INSTALL SEQUENCE STARTED", 25);
-				await addLog("[ >>> ] ========================================================", 15);
-				await addLog("[ >>> ] [INSTALLER] Initializing persistent physical block device /dev/idb0...", 30);
-				await addLog("[ >>> ] [INSTALLER] Formatting EXT3 journaling structure on root mount...", 30);
-				await addLog("[ >>> ] [INSTALLER] Slicing swap blocks and optimizing paging files...", 20);
-				await addLog("[ >>> ] [INSTALLER] Rebuilding essential folder trees for system users...", 20);
+				await addLog("First-boot initialization started...", 15);
 
 				const defaultSettings = sysconfigParsed || {
 					hostname: "tux-dapper-2006",
@@ -220,17 +214,14 @@ export const useWebOS = () => {
 					is_configured: true
 				};
 				writeVFSFile(rootVFS, "/etc/sysconfig.json", JSON.stringify(updatedSettings, null, 2));
-				await addLog("[ >>> ] [INSTALLER] Configured sysconfig file with standard policies.", 20);
+				await addLog("System configuration written", 20);
 
 				// Populate customAppRegistry.json
 				writeVFSFile(rootVFS, "/etc/customAppRegistry.json", JSON.stringify(fallbackApps, null, 2));
-				await addLog("[ >>> ] [INSTALLER] Extracted core binary packages to actual registry...", 30);
+				await addLog("System application registry written", 30);
 
 				await saveVFSToDisk(rootVFS);
-				await addLog("[ >>> ] [INSTALLER] Synchronized volume sectors and persisted VFS cleanly.", 40);
-				await addLog("[ >>> ] ========================================================", 15);
-				await addLog("[ >>> ] OUT-OF-BOX INSTALL COMPLETED SUCCESSFUL - HARDWARE BOOT CONTINUING", 25);
-				await addLog("[ >>> ] ========================================================", 15);
+				await addLog("First-boot initialization completed", 40);
 			}
 
 			// Synchronize internal app registry to the actual app registry on boot
@@ -294,62 +285,50 @@ export const useWebOS = () => {
 				setCurrentCwd(`/home/${user}`);
 			});
 
-			await addLog(`[    0.104254] Instantiated Kernel module successfully. Checking capabilities...`, 50);
+			await addLog(`Kernel initialized, verifying capabilities...`, 50);
 			const contractCaps = ["bootProcess", "killProcess", "getProcesses", "getKernelVFS", "getSyscallToken", "flushVFSToDisk", "getCurrentUser", "testAuthentication"];
 			for (const cap of contractCaps) {
 				const ok = typeof (kernelRef.current as any)[cap] === "function";
 				await addLog(`               - capability verification: ${cap.padEnd(20, " ")} -> [${ok ? "FOUND" : "MISSING"}]`, 20);
 			}
 
-			await addLog("[    0.280015] EXT3-fs: mounting root block VFS with journaled integrity ... SUCCESS", 60);
-			
-			if (selectedKernelId === "xsi") {
-				await addLog("[    0.301015] [XSI SEQUENCE] Enabling Advanced Page Table Namespace Isolation.", 50);
-				await addLog("[    0.312105] [XSI SEQUENCE] Mounting inter-process shared memory blocks (SHM V5).", 50);
-				await addLog("[    0.324267] [XSI SEQUENCE] Allocating semaphore isolation registers (SEM V5).", 50);
-			} else if (selectedKernelId === "fob") {
-				await addLog("[    0.301015] [FOB MODULE] Spawning slim core microkernel optimizations.", 35);
-				await addLog("[    0.312105] [FOB MODULE] Bypassing audit daemon background routines.", 35);
-			}
-
-			await addLog("[    0.340115] Sandboxed Secure Kernel: COMPILING ISOLATION LAYERS ... [ OK ]", 60);
-			await addLog("[    0.410115] Core Sysconfig system policies loaded from '/etc/sysconfig.json'", 60);
-			await addLog("[    0.501254] Mounting IndexedDB Persistent block storage device /dev/idb0 ... SUCCESS", 80);
+			await addLog("Verifying system configuration...", 80);
 
 			// FSCK directories output
 			const etcNode = resolveNode(rootVFS, "/etc")?.children;
 			if (etcNode) {
 				const etcFiles = Object.keys(etcNode).join(", ");
-				await addLog(`[    0.521105] FSCK: verified '/etc/' directory nodes: [ ${etcFiles} ]`, 50);
+				await addLog(`Verified '/etc/' configuration: [ ${etcFiles} ]`, 50);
 			}
+
+			await addLog("Verifying user accounts...", 80);
 
 			const usersFile = resolveNode(rootVFS, "/etc/users.json");
 			if (usersFile && usersFile.content) {
 				try {
+					// TODO: rigidify system to not load corrupt users
 					const parsed = JSON.parse(usersFile.content);
 					const usernames = parsed.map((ac: any) => ac.username).join(", ");
-					await addLog(`[    0.540120] Dynamic Accounts parsed from users.json: [ ${usernames} ]`, 50);
+					await addLog(`User accounts loaded: [ ${usernames} ]`, 50);
 				} catch {}
 			}
 
 			// Spawn Init Service Daemon
 			kernelRef.current.bootProcess("systemBackgroundProcessD", true);
 
-			await addLog("INIT: service 'systemBackgroundProcessD' [PID 1] spawned successfully.", 50);
-			await addLog("[    0.602115] Starting essential daemon services...", 50);
+			await addLog("Service 'systemBackgroundProcessD' loaded", 50);
+			await addLog("Starting system services...", 50);
 
 			const runningServices = selectedKernelId === "fob" ? ["syslogd.service"]
 				: selectedKernelId === "xsi" ? ["syslogd.service", "journald-logger.service", "memcleanG.service", "xsi-ipc-broker.service"]
 				: ["syslogd.service", "journald-logger.service", "memcleanG.service"];
 
 			for (const service of runningServices) {
-				await addLog(`Starting ${service} ... [ OK ]`, 70);
+				await addLog(`Started ${service}`, 70);
 				kernelRef.current.writeSyslog(`Boot completed for ${service}`);
 			}
 
-			await addLog("[   0.890011] Initializing GNOME Display Manager 2.14.3...", 70);
-			await addLog("gdm-login: opening authentication Greeter session...", 80);
-			await addLog(`Boot sequence fully completed. [ SYSTEM READY - FLAVOR: ${selectedKernelId.toUpperCase()} ]`, 80);
+			await addLog(`Boot completed: [ ${selectedKernelId.toUpperCase()} ]`, 80);
 
 			// Save complete logs to /var/boot_log.txt on the VFS
 			const completeLog = logs.join("\n");
@@ -377,7 +356,7 @@ export const useWebOS = () => {
 					setPanicMessage(kernelRef.current.getPanicMessage());
 				}
 
-				setBootLoaderPhase("none");
+				setBootLoaderPhase(BootloaderPhase.NONE);
 				setIsBooting(false);
 			}
 		};
@@ -709,8 +688,8 @@ export const useWebOS = () => {
 	// Persist cached virtual filesystem on page leave or unload
 	useEffect(() => {
 		const handleLeave = () => {
-			if (kernelRef.current && (kernelRef.current as any).flushVFSToDisk) {
-				(kernelRef.current as any).flushVFSToDisk();
+			if (kernelRef.current && kernelRef.current.flushVFSToDisk) {
+				kernelRef.current.flushVFSToDisk();
 			}
 		};
 		window.addEventListener("beforeunload", handleLeave);
@@ -733,8 +712,8 @@ export const useWebOS = () => {
 		if (kernelRef.current) {
 			kernelRef.current.logoutUser();
 			kernelRef.current.writeSyslog("System reboot signal toggled by user request.");
-			if ((kernelRef.current as any).flushVFSToDisk) {
-				(kernelRef.current as any).flushVFSToDisk();
+			if (kernelRef.current.flushVFSToDisk) {
+				kernelRef.current.flushVFSToDisk();
 			}
 		}
 		setTimeout(() => {
@@ -822,19 +801,19 @@ export const useWebOS = () => {
 					? kernelVerFile.replace("Linux version ", "").split(" ")[0] 
 					: "2.6.15-26";
 				output = [
-					"            .-.-.          " + u + "@trashlinux-beast",
-					"           ( o o )         ----------------------",
-					"            | O |          OS: TrashLinux 0.04a-stable Build 42",
-					"           /     \\         Kernel: " + kVer + "-SMP x86_64",
-					"          /       \\        Uptime: " + Math.floor((Date.now() - (kernelRef.current ? 0 : Date.now())) / 60000) + " mins",
-					"         /   - -   \\       Active Session: " + u + " [Role: " + roleStr + "]",
-					"        /           \\      Shell: bash 1.14.7-trash",
-					"       = ==  ===  == =     Resolution: 1024x768 (Rigid CLI)",
-					"       |             |     DE: TLDM Desktop v0.01 (Clunky Steel)",
-					"       |             |     WM: Metacity-Clunky (Window Manager Frame)",
-					"       \\             /     CPU: Dumpster Fire x86 CPU @ 133MHz",
-					"        \\           /      Memory: 74MB / 256MB (Physically Clamped)",
-					"         '-=======_/'      Storage VFS Node count: " + Object.keys(syscall.listDir("/") || {}).length,
+					"" + u + "@trashlinux-beast",
+					"----------------------",
+					"OS: TrashLinux 0.04a-stable Build 42",
+					"Kernel: " + kVer + "-SMP x86_64",
+					"Uptime: " + Math.floor((Date.now() - (kernelRef.current ? 0 : Date.now())) / 60000) + " mins",
+					"Active Session: " + u + " [Role: " + roleStr + "]",
+					"Shell: bash 1.14.7-trash",
+					"Resolution: 1024x768 (Rigid CLI)",
+					"DE: TLDM Desktop v0.01 (Clunky Steel)",
+					"WM: Metacity-Clunky (Window Manager Frame)",
+					"CPU: Dumpster Fire x86 CPU @ 133MHz",
+					"Memory: 74MB / 256MB (Physically Clamped)",
+					"Storage VFS Node count: " + Object.keys(syscall.listDir("/") || {}).length,
 				];
 				break;
 

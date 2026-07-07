@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Power, RefreshCcw, ShieldAlert, Cpu, HardDrive, KeyRound, Monitor, Info } from "lucide-react";
+import { BootloaderPhase } from "../types/os";
 
 // ==========================================
 // 1. DETAILED DMESG BOOT SCREEN
 // ==========================================
 interface DetailedBootScreenProps {
 	logs: string[];
-	bootLoaderPhase?: "hardware" | "software" | "none";
+	bootLoaderPhase?: BootloaderPhase;
 	availableKernels?: { id: string; name: string; entry: string; version: string }[];
 	selectedKernelId?: string;
 	onSelectKernel?: (id: string) => void;
@@ -14,7 +15,7 @@ interface DetailedBootScreenProps {
 
 export function DetailedBootScreen({
 	logs,
-	bootLoaderPhase = "hardware",
+	bootLoaderPhase = BootloaderPhase.HARDWARE,
 	availableKernels = [],
 	selectedKernelId = "secure",
 	onSelectKernel,
@@ -32,7 +33,7 @@ export function DetailedBootScreen({
 	}, [logs]);
 
 	useEffect(() => {
-		if (bootLoaderPhase !== "hardware") return;
+		if (bootLoaderPhase !== BootloaderPhase.HARDWARE) return;
 		const interval = setInterval(() => {
 			setCountdown((prev) => {
 				if (prev <= 1) {
@@ -47,7 +48,7 @@ export function DetailedBootScreen({
 	}, [bootLoaderPhase, activeSelection, onSelectKernel]);
 
 	useEffect(() => {
-		if (bootLoaderPhase !== "hardware") return;
+		if (bootLoaderPhase !== BootloaderPhase.HARDWARE) return;
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === "1") {
 				setActiveSelection("secure");
@@ -63,7 +64,7 @@ export function DetailedBootScreen({
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [bootLoaderPhase, activeSelection, onSelectKernel]);
 
-	if (bootLoaderPhase === "hardware") {
+	if (bootLoaderPhase === BootloaderPhase.HARDWARE) {
 		return (
 			<div className="tlnx-boot-loader">
 				<div className="tlnx-loader-content">

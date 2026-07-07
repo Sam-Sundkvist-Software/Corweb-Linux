@@ -168,10 +168,6 @@ export default function WindowFrame({
 		headerThemeClass = "header-system";
 	}
 
-	const { resolvedStyle: windowStyleSystemProps } = useStyleSystem("div", "silver-window", win.id);
-	const { resolvedStyle: headerStyleSystemProps } = useStyleSystem("div", isActive ? "silver-header" : "silver-header-inactive");
-	const { resolvedStyle: buttonStyleSystemProps } = useStyleSystem("button", "silver-btn");
-
 	const headerClass = `silver-header ${headerThemeClass} ${isActive ? "" : "silver-header-inactive"}`;
 	
 	// Dragging should be instant (no transitions during drag/resize)
@@ -187,7 +183,6 @@ export default function WindowFrame({
 				width: "100%",
 				height: "100%",
 				zIndex: win.zIndex,
-				...windowStyleSystemProps
 			}
 		: {
 				top: `${win.y}px`,
@@ -195,7 +190,6 @@ export default function WindowFrame({
 				width: `${win.width}px`,
 				height: `${win.height}px`,
 				zIndex: win.zIndex,
-				...windowStyleSystemProps
 			};
 
 	if (win.isMinimized) {
@@ -206,37 +200,34 @@ export default function WindowFrame({
 		<div
 			ref={frameRef}
 			id={win.id}
-			className={windowClasses}
+			className={`tlnx-desktop-window`}
 			style={style}
 			onClick={() => !isDisabled && onFocus(win.id)}
 		>
 			{/* TrashLinux Window Header Panel */}
 			<div
-				className={headerClass}
-				style={headerStyleSystemProps}
+				className="tlnx-desktop-window-header"
 				onMouseDown={handleHeaderMouseDown}
 				onDoubleClick={() => onMaximize(win.id)}
 			>
-				<div className="silver-window-title truncate">
+				<div className="tlnx-desktop-window-title">
 					{ledGlowClass && (
 						<div className={`${ledGlowClass} shrink-0`} />
 					)}
 					<span className="select-none truncate">
 						{titleIcon} {win.title}
 					</span>
-					{extraHeaderDecoration}
 				</div>
 
 				{/* Action Buttons */}
-				<div className="silver-btn-grp">
+				<div className="tlnx-desktop-window-buttons">
 					{/* Minimize Button */}
 					<button
 						onClick={(e) => {
 							e.stopPropagation();
 							onMinimize(win.id);
 						}}
-						className="silver-btn"
-						style={buttonStyleSystemProps}
+						className="tlnx-desktop-window-button"
 						title="Minimize"
 					>
 						_
@@ -248,8 +239,7 @@ export default function WindowFrame({
 							e.stopPropagation();
 							onMaximize(win.id);
 						}}
-						className="silver-btn"
-						style={buttonStyleSystemProps}
+						className="tlnx-desktop-window-button"
 						title="Maximize"
 					>
 						□
@@ -261,8 +251,7 @@ export default function WindowFrame({
 							e.stopPropagation();
 							onClose(win.id);
 						}}
-						className="silver-btn silver-btn-close"
-						style={buttonStyleSystemProps}
+						className="tlnx-desktop-window-button"
 						title="Close"
 					>
 						X
@@ -271,7 +260,7 @@ export default function WindowFrame({
 			</div>
 
 			{/* Application Container Canvas */}
-			<div className="flex-1 min-h-0 relative bg-[#eeeeec] text-black flex flex-col font-mono select-text">
+			<div className="tlnx-desktop-window-content flex-1 min-h-0 relative bg-[#eeeeec] text-black flex flex-col font-mono select-text">
 				{/* Interactive Diagonal Gloss overlay across the window pane */}
 				<div className="gloss-overlay" />
 
@@ -283,13 +272,13 @@ export default function WindowFrame({
 
 				{/* Disabled Overlay if process is not focused (simulating classic window locks) */}
 				{!isActive && (
-					<div className="absolute inset-0 bg-black/5 pointer-events-none z-40" />
+					<div className="tlnx-desktop-window-overlay inactive  absolute inset-0 bg-black/5 pointer-events-none z-40" />
 				)}
 
 				{/* Modal disable guard overlay */}
 				{isDisabled && (
-					<div className="absolute inset-0 bg-black/15 flex items-center justify-center select-none cursor-not-allowed pointer-events-auto z-50 p-2.5">
-						<div className="bg-[#ede9e2] border-2 border-[#808080] px-4 py-2 font-sans font-bold text-[#404040] shadow-md uppercase tracking-wide text-[10px] flex items-center space-x-1">
+					<div className="tlnx-desktop-window-overlay disabled  absolute inset-0 bg-black/15 flex items-center justify-center select-none cursor-not-allowed pointer-events-auto z-50 p-2.5">
+						<div className="tlnx-desktop-window-message  bg-[#ede9e2] border-2 border-[#808080] px-4 py-2 font-sans font-bold text-[#404040] shadow-md uppercase tracking-wide text-[10px] flex items-center space-x-1">
 							<span>🔒 Locked by Dialog Window</span>
 						</div>
 					</div>
